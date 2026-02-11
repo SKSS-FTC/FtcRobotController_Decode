@@ -3,7 +3,7 @@ repositories {
     google() // Needed for androidx
 }
 
-dependencies {
+ dependencies {
     implementation 'org.firstinspires.ftc:Inspection:11.1.0'
     implementation 'org.firstinspires.ftc:Blocks:11.1.0'
     implementation 'org.firstinspires.ftc:RobotCore:11.1.0'
@@ -13,5 +13,7 @@ dependencies {
     implementation 'org.firstinspires.ftc:FtcCommon:11.1.0'
     implementation 'org.firstinspires.ftc:Vision:11.1.0'
     implementation 'androidx.appcompat:appcompat:1.2.0'
+    implementation 'org.tensorflow:tensorflow-lite:2.12.0'
+    implementation 'gov.nist.math:jama:1.0.3'
 }
 
