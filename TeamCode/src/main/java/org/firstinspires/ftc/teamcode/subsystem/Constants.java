@@ -31,8 +31,8 @@ public class Constants {
     // AprilTag Positions (in meters from field center)
     // Measured values from real DECODE field (~1mm precision)
     // ============================================
-    public static final double[] BLUE_GOAL_TAG_POSITION_CENTER_FRAME = {-1.482, -1.413, 0.7493};
-    public static final double[] RED_GOAL_TAG_POSITION_CENTER_FRAME = {-1.482, 1.413, 0.7493};
+    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, -1.413, 0.7493}, 3);
+    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493}, 3);
 
     // ============================================
     // AprilTag Rotations (radians, measured from real DECODE field)
@@ -109,16 +109,27 @@ public class Constants {
         RED_GOAL_TAG_POSITION_CENTER_FRAME
     );
 
-    private static Matrix computeTagToMapTransform(Matrix rotation, double[] position) {
-        Matrix tagToCenter = Transformation.createTransformationMatrix(rotation.getArrayCopy(), position);
+    private static Matrix computeTagToMapTransform(Matrix rotation, Matrix position) {
+        double[] positionArray = new double[3];
+        for (int i = 0; i < 3; i++) {
+            positionArray[i] = position.get(i, 0);
+        }
+        Matrix tagToCenter = Transformation.createTransformationMatrix(rotation.getArrayCopy(), positionArray);
         return FIELD_CENTER_TO_MAP_CORNER.times(tagToCenter);
     }
 
+    /**
+     * AprilTag positions in map corner frame (from field center using .times())
+     */
+    public static final Matrix BLUE_GOAL_TAG_POSITION_MAP_CORNER_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(BLUE_GOAL_TAG_POSITION_CENTER_FRAME);
+    public static final Matrix RED_GOAL_TAG_POSITION_MAP_CORNER_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(RED_GOAL_TAG_POSITION_CENTER_FRAME);
+
+    /**
+     * Shooting target positions in map corner frame (4x1 matrices)
+     */
+    public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP_CORNER = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 0}, 4);
+    public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP_CORNER = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 0}, 4);
+
     public static Pose currentPose = new Pose(0,0,0);
-        public static double boardAngle = Math.tan((double) 55 /40) / Math.PI * 180;
-        public static double[] redShootingTarget = {132, 138};
-        public static double[] redAprilTag = {129, 127.8};
-        public static double[] blueShootingTarget = {12, 138};
-        public static double[] blueAprilTag = {15, 127.8};
-        public static int shooterEncoder = 10000;
+    public static int shooterEncoder = 10000;
 }
