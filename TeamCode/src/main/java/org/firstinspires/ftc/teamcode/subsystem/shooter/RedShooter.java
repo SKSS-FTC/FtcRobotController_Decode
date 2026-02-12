@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystem.shooter;
 
-import static org.firstinspires.ftc.teamcode.subsystem.Constants.RED_SHOOTING_TARGET_POSITION_MAP_CORNER;
+import static org.firstinspires.ftc.teamcode.subsystem.Constants.RED_SHOOTING_TARGET_POSITION_MAP;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterEncoder;
 
 import com.pedropathing.follower.Follower;
@@ -55,8 +55,8 @@ public class RedShooter {
     }
 
     private void calculateShooterAngle(double robotHeading){
-        relativeShootingVector = new Pose(currentPose.getX() - RED_SHOOTING_TARGET_POSITION_MAP_CORNER.get(1,1),
-                currentPose.getY() - RED_SHOOTING_TARGET_POSITION_MAP_CORNER.get(2,1));
+        relativeShootingVector = new Pose(currentPose.getX() - RED_SHOOTING_TARGET_POSITION_MAP.get(1,1),
+                currentPose.getY() - RED_SHOOTING_TARGET_POSITION_MAP.get(2,1));
         absoluteShooterHeading = Math.tan(Math.abs(relativeShootingVector.getX()/relativeShootingVector.getY()) * Math.PI /180);
         relativeShooterHeading = absoluteShooterHeading - robotHeading;
         while(relativeShooterHeading > 360){
