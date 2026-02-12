@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
+import com.pedropathing.geometry.Pose;
+
 import Jama.Matrix;
 
     /**
@@ -111,4 +113,12 @@ public class Constants {
         Matrix tagToCenter = Transformation.createTransformationMatrix(rotation.getArrayCopy(), position);
         return FIELD_CENTER_TO_MAP_CORNER.times(tagToCenter);
     }
+
+    public static Pose currentPose = new Pose(0,0,0);
+        public static double boardAngle = Math.tan((double) 55 /40) / Math.PI * 180;
+        public static double[] redShootingTarget = {132, 138};
+        public static double[] redAprilTag = {129, 127.8};
+        public static double[] blueShootingTarget = {12, 138};
+        public static double[] blueAprilTag = {15, 127.8};
+        public static int shooterEncoder = 10000;
 }
