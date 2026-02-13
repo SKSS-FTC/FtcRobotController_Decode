@@ -52,8 +52,8 @@ public class ExampleTransformationOdometry extends LinearOpMode {
             transformation.initialize();
 
             // Register AprilTag positions in map frame (4x4 homogeneous matrices)
-            transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.getTag20ToMapTransform());
-            transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.getTag24ToMapTransform());
+            transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.TAG_20_TO_MAP);
+            transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.TAG_24_TO_MAP);
         } catch (Throwable t) {
             telemetry.addData("Init Crash", t.getClass().getSimpleName());
             telemetry.addData("Message", t.getMessage());
@@ -88,11 +88,15 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                             continue;
                         }
 
-                        telemetry.addData(String.format("Tag %d Pose", tagId),
-                                "X: %.3f, Y: %.3f, Z: %.3f (m)",
+                        double yawRad = Math.atan2(pose.rotationMatrix[1][0], pose.rotationMatrix[0][0]);
+                        double yawDeg = Math.toDegrees(yawRad);
+
+                        telemetry.addData(String.format("Tag %d Pose [M]", tagId),
+                            "X_M: %.3f, Y_M: %.3f, Z_M: %.3f (m), Yaw_M: %.1f deg",
                                 pose.translation[0],
                                 pose.translation[1],
-                                pose.translation[2]);
+                                pose.translation[2],
+                                yawDeg);
                     }
                 }
 
@@ -108,11 +112,14 @@ public class ExampleTransformationOdometry extends LinearOpMode {
 
                     RobotPose robustPose = transformation.getRobotPoseInMapFromMultipleTags(tagDetections);
                     if (robustPose != null) {
-                        telemetry.addData("Multi-Tag Averaged Pose",
-                            "X: %.3f, Y: %.3f, Z: %.3f (m)",
+                        double robustYawRad = Math.atan2(robustPose.rotationMatrix[1][0], robustPose.rotationMatrix[0][0]);
+                        double robustYawDeg = Math.toDegrees(robustYawRad);
+                        telemetry.addData("Multi-Tag Averaged Pose [M]",
+                            "X_M: %.3f, Y_M: %.3f, Z_M: %.3f (m), Yaw_M: %.1f deg",
                             robustPose.translation[0],
                             robustPose.translation[1],
-                            robustPose.translation[2]);
+                            robustPose.translation[2],
+                            robustYawDeg);
                     }
                 }
 

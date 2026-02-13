@@ -56,7 +56,7 @@ public class Transformation {
         }
 
         try {
-            Matrix H_tagToMap = computeInverse(getTagToMapTransform(tagId));
+            Matrix H_tagToMap = getTagToMapTransform(tagId);
             Matrix H_baseToCamera = computeInverse(H_SHOOTER_TO_BASE)
                     .times(computeInverse(H_CAMERA_TO_SHOOTER));
 

@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
-import com.pedropathing.geometry.Pose;
-
 import Jama.Matrix;
 
     /**
@@ -41,17 +39,8 @@ public class Constants {
     public static final double RED_GOAL_TAG_ROTATION_YAW = Math.toRadians(-54);
 
     // ============================================
-    // AprilTag Rotation Matrices (3x3)
+    // AprilTag Rotation Matrices (3x3 as Matrix objects)
     // ============================================
-
-    /**
-     * AprilTag rotation matrices - rotations around Z axis
-     */
-    public static final double[][] BLUE_GOAL_TAG_ROTATION_MATRIX = {
-        {Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), -Math.sin(BLUE_GOAL_TAG_ROTATION_YAW), 0.0},
-        {Math.sin(BLUE_GOAL_TAG_ROTATION_YAW),  Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), 0.0},
-        {0.0,                                        0.0,                              1.0}
-    };
 
     public static final Matrix ROTATION_MATRIX_TAG_20;
     static {
@@ -70,11 +59,6 @@ public class Constants {
             {0,                                 0,                                        1}
         });
     }
-    public static final double[][] RED_GOAL_TAG_ROTATION_MATRIX = {
-        {Math.cos(RED_GOAL_TAG_ROTATION_YAW), -Math.sin(RED_GOAL_TAG_ROTATION_YAW), 0.0},
-        {Math.sin(RED_GOAL_TAG_ROTATION_YAW),  Math.cos(RED_GOAL_TAG_ROTATION_YAW), 0.0},
-        {0.0,                                       0.0,                              1.0}
-    };
 
     // ============================================
     // AprilTag Transformation Matrices (4x4 homogeneous)
@@ -109,14 +93,6 @@ public class Constants {
         RED_GOAL_TAG_POSITION_CENTER_FRAME
     );
 
-    public static Matrix getTag20ToMapTransform() {
-        return TAG_20_TO_MAP;
-    }
-
-    public static Matrix getTag24ToMapTransform() {
-        return TAG_24_TO_MAP;
-    }
-
     private static Matrix computeTagToMapTransform(Matrix rotation, Matrix position) {
         double[] positionArray = new double[3];
         for (int i = 0; i < 3; i++) {
@@ -146,7 +122,4 @@ public class Constants {
      */
     public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 0}, 4);
     public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 0}, 4);
-
-    public static Pose currentPose = null;
-    public static int shooterEncoder = 10000;
 }

@@ -6,9 +6,8 @@ import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import static org.firstinspires.ftc.teamcode.subsystem.Constants.currentPose;
-
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamcode.subsystem.RobotState;
 
 public class RedPath {
     private final Pose FarStartPose = new Pose(122, 124.06919275123559, Math.toRadians(125));
@@ -46,7 +45,7 @@ public class RedPath {
     public void setFarStartPose(){
         follower.setStartingPose(FarStartPose);
     }
-    public void setTeleopStartPose(){follower.setStartingPose(currentPose);}
+    public void setTeleopStartPose(){follower.setStartingPose(RobotState.currentPose);}
 
     public double getX(){return follower.getPose().getX();}
     public double getY(){return follower.getPose().getY();}
@@ -129,6 +128,6 @@ public class RedPath {
     }
     public void update(){
         follower.update();
-        currentPose = follower.getPose();
+        RobotState.currentPose = follower.getPose();
     }
 }
