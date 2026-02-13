@@ -14,6 +14,12 @@ public class Transformation {
     public static Matrix H_CAMERA_TO_SHOOTER;
     public static Matrix H_SHOOTER_TO_BASE;
 
+    private static void ensureInitialized() {
+        if (H_CAMERA_TO_SHOOTER == null || H_SHOOTER_TO_BASE == null) {
+            initialize();
+        }
+    }
+
     public static void initialize() {
         H_CAMERA_TO_SHOOTER = createIdentityMatrix();
         H_SHOOTER_TO_BASE = createIdentityMatrix();
@@ -21,6 +27,10 @@ public class Transformation {
     }
 
     public static void registerAprilTag(int tagId, Matrix tagToMap) {
+        ensureInitialized();
+        if (tagToMap == null) {
+            throw new IllegalArgumentException("tagToMap must not be null");
+        }
         if (tagToMap.getRowDimension() != 4 || tagToMap.getColumnDimension() != 4) {
             throw new IllegalArgumentException("tagToMap must be a 4x4 homogeneous transformation matrix");
         }
@@ -36,19 +46,28 @@ public class Transformation {
     }
 
     public static RobotPose getRobotPoseInMap(int tagId, Matrix cameraToTag) {
+        ensureInitialized();
         if (!isTagRegistered(tagId)) {
             return null;
         }
 
-        Matrix H_tagToMap = computeInverse(getTagToMapTransform(tagId));
-        Matrix H_baseToCamera = computeInverse(H_SHOOTER_TO_BASE)
-                .times(computeInverse(H_CAMERA_TO_SHOOTER));
+        if (cameraToTag == null || cameraToTag.getRowDimension() != 4 || cameraToTag.getColumnDimension() != 4) {
+            return null;
+        }
 
-        Matrix H_baseToMap = H_tagToMap
-                .times(cameraToTag)
-                .times(H_baseToCamera);
+        try {
+            Matrix H_tagToMap = computeInverse(getTagToMapTransform(tagId));
+            Matrix H_baseToCamera = computeInverse(H_SHOOTER_TO_BASE)
+                    .times(computeInverse(H_CAMERA_TO_SHOOTER));
 
-        return extractRotationAndTranslation(H_baseToMap);
+            Matrix H_baseToMap = H_tagToMap
+                    .times(cameraToTag)
+                    .times(H_baseToCamera);
+
+            return extractRotationAndTranslation(H_baseToMap);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     public static RobotPose getRobotPoseInMapFromMultipleTags(List<TagDetection> tagDetections) {
@@ -99,6 +118,9 @@ public class Transformation {
     }
 
     public static Matrix computeInverse(Matrix H) {
+        if (H == null) {
+            throw new IllegalArgumentException("Matrix must not be null");
+        }
         if (H.getRowDimension() != 4 || H.getColumnDimension() != 4) {
             throw new IllegalArgumentException("Matrix must be 4x4 homogeneous transformation matrix");
         }
@@ -129,6 +151,9 @@ public class Transformation {
     }
 
     public static RobotPose extractRotationAndTranslation(Matrix H) {
+        if (H == null) {
+            throw new IllegalArgumentException("Matrix must not be null");
+        }
         if (H.getRowDimension() != 4 || H.getColumnDimension() != 4) {
             throw new IllegalArgumentException("Matrix must be 4x4 homogeneous transformation matrix");
         }

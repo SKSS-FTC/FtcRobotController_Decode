@@ -109,6 +109,14 @@ public class Constants {
         RED_GOAL_TAG_POSITION_CENTER_FRAME
     );
 
+    public static Matrix getTag20ToMapTransform() {
+        return TAG_20_TO_MAP;
+    }
+
+    public static Matrix getTag24ToMapTransform() {
+        return TAG_24_TO_MAP;
+    }
+
     private static Matrix computeTagToMapTransform(Matrix rotation, Matrix position) {
         double[] positionArray = new double[3];
         for (int i = 0; i < 3; i++) {

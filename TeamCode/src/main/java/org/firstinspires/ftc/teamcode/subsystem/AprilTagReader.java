@@ -32,7 +32,8 @@ public class AprilTagReader {
         if (aprilTagProcessor == null) {
             return new ArrayList<>();
         }
-        return aprilTagProcessor.getDetections();
+        List<AprilTagDetection> detections = aprilTagProcessor.getDetections();
+        return detections != null ? detections : new ArrayList<>();
     }
 
     /**
@@ -93,6 +94,21 @@ public class AprilTagReader {
     }
 
     /**
+     * Get tag-to-camera transformation matrix for a specific AprilTag ID.
+     *
+     * @param tagId AprilTag ID
+     * @return 4x4 homogeneous transformation matrix [R t; 0 1] (meters, radians)
+     */
+    public Matrix getTagToCameraMatrix(int tagId) {
+        Matrix cameraToTag = getCameraToTagMatrix(tagId);
+        try {
+            return Transformation.computeInverse(cameraToTag);
+        } catch (RuntimeException ignored) {
+            return Transformation.createIdentityMatrix();
+        }
+    }
+
+    /**
      * Get camera-to-tag transformation matrices for multiple AprilTag IDs.
      *
      * @param tagIds Array of AprilTag IDs
@@ -127,12 +143,21 @@ public class AprilTagReader {
         double roll = Math.toRadians(detection.ftcPose.roll);
         double yaw = Math.toRadians(detection.ftcPose.yaw);
 
+        if (!isFinite(x) || !isFinite(y) || !isFinite(z)
+                || !isFinite(pitch) || !isFinite(roll) || !isFinite(yaw)) {
+            return Transformation.createIdentityMatrix();
+        }
+
         // Create rotation matrix from roll-pitch-yaw
         Matrix rotationMatrix = rotationMatrixFromRpy(roll, pitch, yaw);
 
         double[] translation = new double[]{x, y, z};
 
         return Transformation.createTransformationMatrix(rotationMatrix.getArrayCopy(), translation);
+    }
+
+    private boolean isFinite(double value) {
+        return !Double.isNaN(value) && !Double.isInfinite(value);
     }
 
     /**

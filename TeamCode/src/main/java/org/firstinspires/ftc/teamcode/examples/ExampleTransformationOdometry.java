@@ -43,8 +43,8 @@ public class ExampleTransformationOdometry extends LinearOpMode {
         transformation.initialize();
 
         // Register AprilTag positions in map frame (4x4 homogeneous matrices)
-        transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.TAG_20_TO_MAP);
-        transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.TAG_24_TO_MAP);
+        transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.getTag20ToMapTransform());
+        transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.getTag24ToMapTransform());
 
         waitForStart();
 
@@ -67,6 +67,9 @@ public class ExampleTransformationOdometry extends LinearOpMode {
 
                 if (H_camera_to_tag != null) {
                     RobotPose pose = transformation.getRobotPoseInMap(tagId, H_camera_to_tag);
+                    if (pose == null) {
+                        continue;
+                    }
 
                     telemetry.addData(String.format("Tag %d Pose", tagId),
                             "X: %.3f, Y: %.3f, Z: %.3f (m)",
@@ -87,12 +90,13 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                 }
 
                 RobotPose robustPose = transformation.getRobotPoseInMapFromMultipleTags(tagDetections);
-
-                telemetry.addData("Multi-Tag Averaged Pose",
+                if (robustPose != null) {
+                    telemetry.addData("Multi-Tag Averaged Pose",
                         "X: %.3f, Y: %.3f, Z: %.3f (m)",
                         robustPose.translation[0],
                         robustPose.translation[1],
                         robustPose.translation[2]);
+                }
             }
 
             telemetry.update();
