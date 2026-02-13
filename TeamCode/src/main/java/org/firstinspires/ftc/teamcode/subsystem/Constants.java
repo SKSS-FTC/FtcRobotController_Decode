@@ -126,11 +126,20 @@ public class Constants {
         return FIELD_CENTER_TO_MAP_CORNER.times(tagToCenter);
     }
 
+    private static Matrix toHomogeneousPoint(Matrix point3x1) {
+        return new Matrix(new double[]{
+            point3x1.get(0, 0),
+            point3x1.get(1, 0),
+            point3x1.get(2, 0),
+            1.0
+        }, 4);
+    }
+
     /**
      * AprilTag positions in map corner frame (from field center using .times())
      */
-    public static final Matrix BLUE_GOAL_TAG_POSITION_MAP_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(BLUE_GOAL_TAG_POSITION_CENTER_FRAME);
-    public static final Matrix RED_GOAL_TAG_POSITION_MAP_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(RED_GOAL_TAG_POSITION_CENTER_FRAME);
+    public static final Matrix BLUE_GOAL_TAG_POSITION_MAP_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(toHomogeneousPoint(BLUE_GOAL_TAG_POSITION_CENTER_FRAME));
+    public static final Matrix RED_GOAL_TAG_POSITION_MAP_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(toHomogeneousPoint(RED_GOAL_TAG_POSITION_CENTER_FRAME));
 
     /**
      * Shooting target positions in map corner frame (4x1 matrices)
@@ -138,6 +147,6 @@ public class Constants {
     public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 0}, 4);
     public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 0}, 4);
 
-    public static Pose currentPose = new Pose(0,0,0);
+    public static Pose currentPose = null;
     public static int shooterEncoder = 10000;
 }
