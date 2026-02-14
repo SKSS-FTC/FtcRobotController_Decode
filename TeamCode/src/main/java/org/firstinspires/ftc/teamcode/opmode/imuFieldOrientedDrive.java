@@ -47,7 +47,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
         shoot.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         telemetry.addData("Status", "Initialized");
-        telemetry.update(); // Display the "Initialized" message
+        telemetry.update(); // Display the "Initialized`" message
         shoot.setDirection(DcMotorSimple.Direction.FORWARD);
         intake.setDirection(DcMotorSimple.Direction.FORWARD);
         rightDown.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -56,7 +56,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
         leftUp.setDirection(DcMotorSimple.Direction.FORWARD);
 
         waitForStart();
-        imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.DOWN)));
+        imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP)));
         imu.resetYaw();
 
         while (opModeIsActive()) {
