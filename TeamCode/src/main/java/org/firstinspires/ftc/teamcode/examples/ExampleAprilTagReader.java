@@ -17,6 +17,8 @@ public class ExampleAprilTagReader extends LinearOpMode {
 
     private AprilTagReader aprilTagReader;
     private VisionPortal visionPortal;
+    private java.util.Queue<Long> frameTimestamps = new java.util.LinkedList<>();
+    private static final double MOVING_AVERAGE_WINDOW_SECONDS = 5.0;
 
     @Override
     public void runOpMode() {
@@ -50,9 +52,30 @@ public class ExampleAprilTagReader extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            // Calculate FPS using 5-second moving average
+            long now = System.nanoTime();
+            frameTimestamps.add(now);
+            
+            // Remove timestamps older than moving average window
+            long windowNanos = (long) (MOVING_AVERAGE_WINDOW_SECONDS * 1_000_000_000.0);
+            while (!frameTimestamps.isEmpty() && (now - frameTimestamps.peek()) > windowNanos) {
+                frameTimestamps.remove();
+            }
+            
+            double fps = 0.0;
+            if (frameTimestamps.size() >= 2) {
+                long oldestValue = frameTimestamps.peek();
+                int frameCount = frameTimestamps.size() - 1;  // number of intervals
+                double timeWindowSeconds = (now - oldestValue) / 1_000_000_000.0;
+                if (timeWindowSeconds > 0) {
+                    fps = frameCount / timeWindowSeconds;
+                }
+            }
+
             // Get detections directly - VisionPortal handles frame processing automatically
             List<AprilTagDetection> currentDetections = aprilTagReader.getDetections();
 
+            telemetry.addData("Frequency (Hz)", fps);
             telemetry.addData("# AprilTags Detected", currentDetections.size());
 
             if (currentDetections.size() > 0) {

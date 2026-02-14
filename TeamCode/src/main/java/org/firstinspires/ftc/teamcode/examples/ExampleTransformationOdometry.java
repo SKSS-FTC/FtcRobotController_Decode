@@ -23,6 +23,8 @@ public class ExampleTransformationOdometry extends LinearOpMode {
     private VisionPortal visionPortal;
     private AprilTagReader aprilTagReader;
     private Transformation transformation;
+    private java.util.Queue<Long> frameTimestamps = new java.util.LinkedList<>();
+    private static final double MOVING_AVERAGE_WINDOW_SECONDS = 5.0;
 
     @Override
     public void runOpMode() {
@@ -65,16 +67,38 @@ public class ExampleTransformationOdometry extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            // Calculate FPS using 5-second moving average
+            long now = System.nanoTime();
+            frameTimestamps.add(now);
+            
+            // Remove timestamps older than moving average window
+            long windowNanos = (long) (MOVING_AVERAGE_WINDOW_SECONDS * 1_000_000_000.0);
+            while (!frameTimestamps.isEmpty() && (now - frameTimestamps.peek()) > windowNanos) {
+                frameTimestamps.remove();
+            }
+            
+            double fps = 0.0;
+            if (frameTimestamps.size() >= 2) {
+                long oldestValue = frameTimestamps.peek();
+                int frameCount = frameTimestamps.size() - 1;  // number of intervals
+                double timeWindowSeconds = (now - oldestValue) / 1_000_000_000.0;
+                if (timeWindowSeconds > 0) {
+                    fps = frameCount / timeWindowSeconds;
+                }
+            }
+
             try {
                 List<AprilTagDetection> detections = aprilTagReader.getDetections();
 
                 if (detections.isEmpty()) {
                     telemetry.addData("AprilTags", "No tags detected");
+                    telemetry.addData("Frequency (Hz)", fps);
                     telemetry.update();
                     sleep(100);
                     continue;
                 }
 
+                telemetry.addData("Frequency (Hz)", fps);
                 telemetry.addData("Total Tags Detected", detections.size());
 
                 // Single tag odometry
@@ -124,7 +148,7 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                 }
 
                 telemetry.update();
-                sleep(100);
+                // sleep(100);
             } catch (Throwable t) {
                 telemetry.addData("Runtime Crash", t.getClass().getSimpleName());
                 telemetry.addData("Message", t.getMessage());
