@@ -3,6 +3,12 @@ package org.firstinspires.ftc.teamcode.subsystem;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
 
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -98,6 +104,91 @@ public class DetectionYOLO {
                     className, confidence * 100, x, y, width, height);
         }
     }
+
+    /**
+     * Vision processor integrated into the DetectionYOLO subsystem so examples can
+     * reuse drawing and processing logic without redefining a local processor.
+     */
+    public static class Processor implements org.firstinspires.ftc.vision.VisionProcessor {
+        private final DetectionYOLO detector;
+        private final Paint boxPaint = new Paint();
+        private final Paint textPaint = new Paint();
+        private volatile boolean enabled = true;
+        private volatile List<Detection> lastDetections = new ArrayList<>();
+
+        public Processor(DetectionYOLO detector) {
+            this.detector = detector;
+            boxPaint.setColor(Color.GREEN);
+            boxPaint.setStyle(Paint.Style.STROKE);
+            boxPaint.setStrokeWidth(4);
+
+            textPaint.setColor(Color.WHITE);
+            textPaint.setTextSize(32f);
+            textPaint.setAntiAlias(true);
+        }
+
+        @Override
+        public void init(int width, int height, org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration calibration) {
+            // No-op
+        }
+
+        @Override
+        public Object processFrame(Mat frame, long captureTimeNanos) {
+            if (!enabled || detector == null || !detector.isReady()) {
+                lastDetections = new ArrayList<>();
+                return lastDetections;
+            }
+
+            Bitmap bitmap = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(frame, bitmap);
+
+            List<Detection> detections = detector.detect(bitmap);
+            bitmap.recycle();
+
+            lastDetections = detections;
+            return detections;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight,
+                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity,
+                                Object userContext) {
+            List<Detection> detections;
+            if (userContext instanceof List) {
+                detections = (List<Detection>) userContext;
+            } else {
+                detections = lastDetections;
+            }
+
+            if (detections == null) return;
+
+            for (Detection d : detections) {
+                float left = d.x * onscreenWidth;
+                float top = d.y * onscreenHeight;
+                float right = (d.x + d.width) * onscreenWidth;
+                float bottom = (d.y + d.height) * onscreenHeight;
+
+                canvas.drawRect(left, top, right, bottom, boxPaint);
+                canvas.drawText(
+                        d.className + String.format(" %.0f%%", d.confidence * 100f),
+                        left,
+                        Math.max(32, top - 8),
+                        textPaint
+                );
+            }
+        }
+
+        public List<Detection> getLastDetections() { return lastDetections; }
+
+        public void shutdown() {
+            enabled = false;
+            lastDetections = new ArrayList<>();
+        }
+    }
+
+    /** Create a processor tied to this DetectionYOLO instance. */
+    public Processor createProcessor() { return new Processor(this); }
 
     /**
      * Builder for DetectionYOLO configuration

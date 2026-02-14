@@ -788,4 +788,126 @@ public class SegmentationYOLO {
         inferenceFpsSum += currentInferenceFps;
         inferenceSampleCount++;
     }
+
+    /**
+     * Vision processor integrated into the SegmentationYOLO subsystem so examples
+     * can reuse drawing and processing logic without redefining a local processor.
+     */
+    public static class Processor implements org.firstinspires.ftc.vision.VisionProcessor {
+        private final SegmentationYOLO segmentor;
+        private final android.graphics.Paint boxPaint = new android.graphics.Paint();
+        private final android.graphics.Paint textPaint = new android.graphics.Paint();
+        private final android.graphics.Paint maskPaint = new android.graphics.Paint();
+        private volatile boolean enabled = true;
+        private volatile long lastInferenceMs = 0;
+        private volatile java.util.List<Segmentation> lastSegmentations = new java.util.ArrayList<>();
+
+        public Processor(SegmentationYOLO segmentor) {
+            this.segmentor = segmentor;
+            boxPaint.setColor(android.graphics.Color.CYAN);
+            boxPaint.setStyle(android.graphics.Paint.Style.STROKE);
+            boxPaint.setStrokeWidth(4);
+
+            textPaint.setColor(android.graphics.Color.WHITE);
+            textPaint.setTextSize(32f);
+            textPaint.setAntiAlias(true);
+
+            maskPaint.setColor(android.graphics.Color.argb(110, 0, 255, 255));
+            maskPaint.setStyle(android.graphics.Paint.Style.FILL);
+        }
+
+        @Override
+        public void init(int width, int height, org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration calibration) {
+            // No-op
+        }
+
+        @Override
+        public Object processFrame(org.opencv.core.Mat frame, long captureTimeNanos) {
+            if (!enabled || segmentor == null || !segmentor.isReady()) {
+                lastSegmentations = new java.util.ArrayList<>();
+                return lastSegmentations;
+            }
+
+            long nowMs = System.currentTimeMillis();
+
+            android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(frame.cols(), frame.rows(), android.graphics.Bitmap.Config.ARGB_8888);
+            org.opencv.android.Utils.matToBitmap(frame, bitmap);
+
+            java.util.List<Segmentation> segmentations;
+            try {
+                segmentations = segmentor.detect(bitmap);
+            } catch (Throwable t) {
+                segmentations = new java.util.ArrayList<>();
+            }
+            bitmap.recycle();
+
+            lastSegmentations = segmentations;
+            lastInferenceMs = nowMs;
+            return segmentations;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public void onDrawFrame(android.graphics.Canvas canvas, int onscreenWidth, int onscreenHeight,
+                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity,
+                                Object userContext) {
+            java.util.List<Segmentation> segmentations;
+            if (userContext instanceof java.util.List) {
+                segmentations = (java.util.List<Segmentation>) userContext;
+            } else {
+                segmentations = lastSegmentations;
+            }
+
+            if (segmentations == null) {
+                return;
+            }
+
+            for (Segmentation seg : segmentations) {
+                drawMask(canvas, seg, onscreenWidth, onscreenHeight);
+
+                float left = seg.getX() * onscreenWidth;
+                float top = seg.getY() * onscreenHeight;
+                float right = (seg.getX() + seg.getWidth()) * onscreenWidth;
+                float bottom = (seg.getY() + seg.getHeight()) * onscreenHeight;
+
+                canvas.drawRect(left, top, right, bottom, boxPaint);
+                canvas.drawText(
+                        seg.className + String.format(" %.0f%%", seg.confidence * 100f),
+                        left,
+                        Math.max(32, top - 8),
+                        textPaint
+                );
+            }
+        }
+
+        public java.util.List<Segmentation> getLastSegmentations() { return lastSegmentations; }
+
+        private void drawMask(android.graphics.Canvas canvas, Segmentation seg, int onscreenWidth, int onscreenHeight) {
+            if (seg.mask == null || seg.maskWidth <= 0 || seg.maskHeight <= 0) {
+                return;
+            }
+
+            int step = 6;
+            for (int y = 0; y < seg.maskHeight; y += step) {
+                for (int x = 0; x < seg.maskWidth; x += step) {
+                    float score = seg.mask[y * seg.maskWidth + x];
+                    if (score < 0.5f) {
+                        continue;
+                    }
+
+                    float px = (x / (float) Math.max(1, seg.maskWidth - 1)) * onscreenWidth;
+                    float py = (y / (float) Math.max(1, seg.maskHeight - 1)) * onscreenHeight;
+                    canvas.drawRect(px, py, px + step, py + step, maskPaint);
+                }
+            }
+        }
+
+        public void shutdown() {
+            enabled = false;
+            lastSegmentations = new java.util.ArrayList<>();
+        }
+    }
+
+    /** Create a processor tied to this SegmentationYOLO instance. */
+    public Processor createProcessor() { return new Processor(this); }
 }

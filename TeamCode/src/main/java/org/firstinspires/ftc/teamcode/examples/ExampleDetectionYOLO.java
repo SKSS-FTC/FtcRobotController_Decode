@@ -13,9 +13,6 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration;
 import org.firstinspires.ftc.teamcode.subsystem.DetectionYOLO;
 import org.firstinspires.ftc.vision.VisionPortal;
-import org.firstinspires.ftc.vision.VisionProcessor;
-import org.opencv.android.Utils;
-import org.opencv.core.Mat;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +24,7 @@ import android.util.Size;
  * Example OpMode demonstrating YOLO v8 object detection with live camera stream
  * and overlay drawings in Vision Portal preview.
  */
-@Autonomous(name = "Detections YOLO", group = "AI")
+@Autonomous(name = "Concept: YOLO Detection", group = "AI")
 public class ExampleDetectionYOLO extends LinearOpMode {
     private static final String MODEL_PATH = "yolov8n.tflite";
     private static final int INPUT_SIZE = 640;
@@ -35,91 +32,10 @@ public class ExampleDetectionYOLO extends LinearOpMode {
     
     private DetectionYOLO detector;
     private VisionPortal visionPortal;
-    private DetectionProcessor detectionProcessor;
+    private DetectionYOLO.Processor detectionProcessor;
     private String activeCameraName = "unknown";
     private String activeStreamConfig = "unknown";
 
-    private static class DetectionProcessor implements VisionProcessor {
-        private final DetectionYOLO detector;
-        private final Paint boxPaint = new Paint();
-        private final Paint textPaint = new Paint();
-        private volatile boolean enabled = true;
-        private volatile List<DetectionYOLO.Detection> lastDetections = new ArrayList<>();
-
-        DetectionProcessor(DetectionYOLO detector) {
-            this.detector = detector;
-            boxPaint.setColor(Color.GREEN);
-            boxPaint.setStyle(Paint.Style.STROKE);
-            boxPaint.setStrokeWidth(4);
-
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(32f);
-            textPaint.setAntiAlias(true);
-        }
-
-        @Override
-        public void init(int width, int height, CameraCalibration calibration) {
-            // No-op
-        }
-
-        @Override
-        public Object processFrame(Mat frame, long captureTimeNanos) {
-            if (!enabled || detector == null || !detector.isReady()) {
-                lastDetections = new ArrayList<>();
-                return lastDetections;
-            }
-
-            Bitmap bitmap = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(frame, bitmap);
-
-            List<DetectionYOLO.Detection> detections = detector.detect(bitmap);
-            bitmap.recycle();
-
-            lastDetections = detections;
-            return detections;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight,
-                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity,
-                                Object userContext) {
-            List<DetectionYOLO.Detection> detections;
-            if (userContext instanceof List) {
-                detections = (List<DetectionYOLO.Detection>) userContext;
-            } else {
-                detections = lastDetections;
-            }
-
-            if (detections == null) {
-                return;
-            }
-
-            for (DetectionYOLO.Detection d : detections) {
-                float left = d.x * onscreenWidth;
-                float top = d.y * onscreenHeight;
-                float right = (d.x + d.width) * onscreenWidth;
-                float bottom = (d.y + d.height) * onscreenHeight;
-
-                canvas.drawRect(left, top, right, bottom, boxPaint);
-                canvas.drawText(
-                        d.className + String.format(" %.0f%%", d.confidence * 100f),
-                        left,
-                        Math.max(32, top - 8),
-                        textPaint
-                );
-            }
-        }
-
-        List<DetectionYOLO.Detection> getLastDetections() {
-            return lastDetections;
-        }
-
-        void shutdown() {
-            enabled = false;
-            lastDetections = new ArrayList<>();
-        }
-    }
     
     @Override
     public void runOpMode() throws InterruptedException {
@@ -146,7 +62,7 @@ public class ExampleDetectionYOLO extends LinearOpMode {
                 return;
             }
 
-                detectionProcessor = new DetectionProcessor(detector);
+                detectionProcessor = detector.createProcessor();
 
             WebcamName selectedWebcam = null;
             try {
@@ -268,7 +184,7 @@ public class ExampleDetectionYOLO extends LinearOpMode {
         }
     }
 
-    private VisionPortal buildVisionPortalWithFallback(WebcamName webcamName, DetectionProcessor processor) {
+    private VisionPortal buildVisionPortalWithFallback(WebcamName webcamName, DetectionYOLO.Processor processor) {
         VisionPortal defaultPortal = null;
         try {
             if (webcamName != null) {

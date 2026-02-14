@@ -15,9 +15,6 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration;
 import org.firstinspires.ftc.teamcode.subsystem.SegmentationYOLO;
 import org.firstinspires.ftc.vision.VisionPortal;
-import org.firstinspires.ftc.vision.VisionProcessor;
-import org.opencv.android.Utils;
-import org.opencv.core.Mat;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,127 +31,12 @@ public class ExampleSegmentationYOLO extends LinearOpMode {
     
     private SegmentationYOLO segmentor;
     private VisionPortal visionPortal;
-    private SegmentationProcessor segmentationProcessor;
+    private SegmentationYOLO.Processor segmentationProcessor;
     private String activeCameraName = "unknown";
     private String activeStreamConfig = "unknown";
 
-    private static class SegmentationProcessor implements VisionProcessor {
-        private final SegmentationYOLO segmentor;
-        private final Paint boxPaint = new Paint();
-        private final Paint textPaint = new Paint();
-        private final Paint maskPaint = new Paint();
-        private volatile boolean enabled = true;
-        private volatile long lastInferenceMs = 0;
-        private volatile List<SegmentationYOLO.Segmentation> lastSegmentations = new ArrayList<>();
 
-        SegmentationProcessor(SegmentationYOLO segmentor) {
-            this.segmentor = segmentor;
-            boxPaint.setColor(Color.CYAN);
-            boxPaint.setStyle(Paint.Style.STROKE);
-            boxPaint.setStrokeWidth(4);
 
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(32f);
-            textPaint.setAntiAlias(true);
-
-            maskPaint.setColor(Color.argb(110, 0, 255, 255));
-            maskPaint.setStyle(Paint.Style.FILL);
-        }
-
-        @Override
-        public void init(int width, int height, CameraCalibration calibration) {
-            // No-op
-        }
-
-        @Override
-        public Object processFrame(Mat frame, long captureTimeNanos) {
-            if (!enabled || segmentor == null || !segmentor.isReady()) {
-                lastSegmentations = new ArrayList<>();
-                return lastSegmentations;
-            }
-
-            long nowMs = System.currentTimeMillis();
-
-            Bitmap bitmap = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(frame, bitmap);
-
-            List<SegmentationYOLO.Segmentation> segmentations;
-            try {
-                segmentations = segmentor.detect(bitmap);
-            } catch (Throwable t) {
-                segmentations = new ArrayList<>();
-            }
-            bitmap.recycle();
-
-            lastSegmentations = segmentations;
-            lastInferenceMs = nowMs;
-            return segmentations;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight,
-                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity,
-                                Object userContext) {
-            List<SegmentationYOLO.Segmentation> segmentations;
-            if (userContext instanceof List) {
-                segmentations = (List<SegmentationYOLO.Segmentation>) userContext;
-            } else {
-                segmentations = lastSegmentations;
-            }
-
-            if (segmentations == null) {
-                return;
-            }
-
-            for (SegmentationYOLO.Segmentation seg : segmentations) {
-                drawMask(canvas, seg, onscreenWidth, onscreenHeight);
-
-                float left = seg.getX() * onscreenWidth;
-                float top = seg.getY() * onscreenHeight;
-                float right = (seg.getX() + seg.getWidth()) * onscreenWidth;
-                float bottom = (seg.getY() + seg.getHeight()) * onscreenHeight;
-
-                canvas.drawRect(left, top, right, bottom, boxPaint);
-                canvas.drawText(
-                        seg.className + String.format(" %.0f%%", seg.confidence * 100f),
-                        left,
-                        Math.max(32, top - 8),
-                        textPaint
-                );
-            }
-        }
-
-        List<SegmentationYOLO.Segmentation> getLastSegmentations() {
-            return lastSegmentations;
-        }
-
-        private void drawMask(Canvas canvas, SegmentationYOLO.Segmentation seg, int onscreenWidth, int onscreenHeight) {
-            if (seg.mask == null || seg.maskWidth <= 0 || seg.maskHeight <= 0) {
-                return;
-            }
-
-            int step = 6;
-            for (int y = 0; y < seg.maskHeight; y += step) {
-                for (int x = 0; x < seg.maskWidth; x += step) {
-                    float score = seg.mask[y * seg.maskWidth + x];
-                    if (score < 0.5f) {
-                        continue;
-                    }
-
-                    float px = (x / (float) Math.max(1, seg.maskWidth - 1)) * onscreenWidth;
-                    float py = (y / (float) Math.max(1, seg.maskHeight - 1)) * onscreenHeight;
-                    canvas.drawRect(px, py, px + step, py + step, maskPaint);
-                }
-            }
-        }
-
-        void shutdown() {
-            enabled = false;
-            lastSegmentations = new ArrayList<>();
-        }
-    }
-    
     @Override
     public void runOpMode() throws InterruptedException {
         telemetry.addData("Status", "Initializing...");
@@ -181,7 +63,7 @@ public class ExampleSegmentationYOLO extends LinearOpMode {
                 return;
                 }
 
-            segmentationProcessor = new SegmentationProcessor(segmentor);
+            segmentationProcessor = segmentor.createProcessor();
 
             WebcamName selectedWebcam = null;
             try {
@@ -307,7 +189,7 @@ public class ExampleSegmentationYOLO extends LinearOpMode {
         }
     }
 
-    private VisionPortal buildVisionPortalWithFallback(WebcamName webcamName, SegmentationProcessor processor) {
+    private VisionPortal buildVisionPortalWithFallback(WebcamName webcamName, SegmentationYOLO.Processor processor) {
         VisionPortal defaultPortal = null;
         try {
             if (webcamName != null) {
