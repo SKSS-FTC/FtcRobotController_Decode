@@ -56,8 +56,8 @@ public class BlueShooter {
     }
 
     private void calculateShooterAngle(double robotHeading){
-        relativeShootingVector = new Pose(currentPose.getX() - BLUE_SHOOTING_TARGET_POSITION_MAP.get(1,1),
-                currentPose.getY() - BLUE_SHOOTING_TARGET_POSITION_MAP.get(2,1));
+        relativeShootingVector = new Pose(currentPose.getX() - BLUE_SHOOTING_TARGET_POSITION_MAP.get(0,0),
+                currentPose.getY() - BLUE_SHOOTING_TARGET_POSITION_MAP.get(1,0));
         absoluteShooterHeading = 360 - Math.tan(Math.abs(relativeShootingVector.getX()/relativeShootingVector.getY()) * Math.PI /180);
         relativeShooterHeading = absoluteShooterHeading - robotHeading;
         while(relativeShooterHeading > 360){

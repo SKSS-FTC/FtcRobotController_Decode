@@ -85,7 +85,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
             if (currentHeading < 0) {
                 currentHeading += 360;
             }
-            relativeTargetAngle = currentHeading - getStickAngle(-1 * gamepad1.left_stick_x, gamepad1.left_stick_y);
+            relativeTargetAngle = currentHeading - getStickAngle(gamepad1.left_stick_x, gamepad1.left_stick_y);
             joystickMagnitude = Math.sqrt(Math.pow(gamepad1.left_stick_x, 2) + Math.pow(gamepad1.left_stick_y, 2));
 
             if (fieldDrive) {
@@ -137,7 +137,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
                 return 180;
             }
         }
-        return angelCalculation(x, y, Math.abs(Math.atan(gamepad1.left_stick_y / gamepad1.left_stick_x)) / Math.PI * 180);
+        return angelCalculation(x, y, Math.abs(Math.atan(y/x) / Math.PI * 180));
     }
 
     private double angelCalculation(double x,double y,double inputAngle){
@@ -154,12 +154,8 @@ public class imuFieldOrientedDrive extends LinearOpMode {
                 //quadrant 2
                 return 270 + inputAngle;
             }else{
+                return 270 - inputAngle;
                 //quadrant 3
-                if (inputAngle == 90){
-                    return 0;
-                }else {
-                    return 270 - inputAngle;
-                }
             }
         }
     }

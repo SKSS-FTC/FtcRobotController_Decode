@@ -31,8 +31,8 @@ public class Constants {
     // AprilTag Positions (in meters from field center)
     // Measured values from real DECODE field (~1mm precision)
     // ============================================
-    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, -1.413, 0.7493}, 3);
-    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493}, 3);
+    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, -1.413, 0.7493, 1}, 4);
+    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493, 1}, 4);
 
     // ============================================
     // AprilTag Rotations (radians, measured from real DECODE field)
