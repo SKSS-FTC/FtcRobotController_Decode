@@ -28,6 +28,7 @@ public class shooterAlgorithmTest1 extends LinearOpMode {
             }
             blueShooter.update(new Pose(0,0),120);
             telemetry.addData("Shooter Aiming", blueShooter.shooterAiming);
+            telemetry.addData("current angular velocity", blueShooter.getAngularVelocity());
             telemetry.update();
         }
     }

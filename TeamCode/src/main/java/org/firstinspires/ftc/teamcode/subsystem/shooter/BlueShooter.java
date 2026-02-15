@@ -123,7 +123,7 @@ public class BlueShooter {
         return Math.max(-1.0, Math.min(1.0, output));
     }
 
-    private double getAngularVelocity() {
+    public double getAngularVelocity() {
         int currentEncoderPosition = shooter.getCurrentPosition();
         double currentTime = timer.milliseconds();
         double deltaTime = (currentTime - lastTime) / 1000.0;
