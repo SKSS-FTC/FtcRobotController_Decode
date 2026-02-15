@@ -4,15 +4,15 @@ import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.subsystem.shooter.BlueShooter;
+import org.firstinspires.ftc.teamcode.subsystem.shooter.Shooter;
 
 @TeleOp(name = "ShooterAlgorithmTest1", group = "Tests")
 public class shooterAlgorithmTest1 extends LinearOpMode {
-    private BlueShooter blueShooter;
+    private Shooter shooter;
 
     @Override
     public void runOpMode() {
-        blueShooter = new BlueShooter(hardwareMap);
+        shooter = new Shooter(hardwareMap, Shooter.Alliance.BLUE);
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -21,14 +21,21 @@ public class shooterAlgorithmTest1 extends LinearOpMode {
 
         while (opModeIsActive()) {
             if (gamepad1.triangle) {
-                blueShooter.shooterAiming = true;
+                shooter.shooterAiming = true;
             }
             if (gamepad1.cross) {
-                blueShooter.shooterAiming = false;
+                shooter.shooterAiming = false;
             }
-            blueShooter.update(new Pose(0,0),120);
-            telemetry.addData("Shooter Aiming", blueShooter.shooterAiming);
-            telemetry.addData("current angular velocity", blueShooter.getAngularVelocity());
+            if (gamepad1.dpad_left) {
+                shooter.setAlliance(Shooter.Alliance.BLUE);
+            }
+            if (gamepad1.dpad_right) {
+                shooter.setAlliance(Shooter.Alliance.RED);
+            }
+            shooter.update(new Pose(0, 0), 120);
+            telemetry.addData("Shooter Aiming", shooter.shooterAiming);
+            telemetry.addData("Alliance", shooter.getAlliance());
+            telemetry.addData("Angular Velocity (rad/s)", shooter.getAngularVelocity());
             telemetry.update();
         }
     }
