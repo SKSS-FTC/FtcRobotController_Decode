@@ -1,11 +1,14 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
+import com.acmerobotics.dashboard.config.Config;
+
 import Jama.Matrix;
 
     /**
      * Shared constants for FTC Decoding robot control.
      * Map reference frame: Bottom left corner of field (0,0,0)
      */
+@Config
 public class Constants {
     private Constants() {}
 
@@ -29,8 +32,8 @@ public class Constants {
     // AprilTag Positions (in meters from field center)
     // Measured values from real DECODE field (~1mm precision)
     // ============================================
-    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, -1.413, 0.7493, 1}, 4);
-    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493, 1}, 4);
+    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, -1.413, 0.7493, Math.toRadians(54)}, 4);
+    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493, Math.toRadians(-54)}, 4);
 
     // ============================================
     // AprilTag Rotations (radians, measured from real DECODE field)
@@ -122,4 +125,16 @@ public class Constants {
      */
     public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 0}, 4);
     public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 0}, 4);
+
+    // ============================================
+    // Shooter PID/SMC Control Constants
+    // ============================================
+    public static double SHOOTER_PID_KP = 0.0;
+    public static double SHOOTER_PID_KI = 0.0;
+    public static double SHOOTER_PID_KD = 0.0;
+    public static double SHOOTER_SMC_LAMBDA = 0.0;
+    public static double SHOOTER_SMC_ETA = 0.0;
+    public static boolean SHOOTER_PID = true;
+    public static double shooterTargetAngularVelocity = 10;
+    public static double shooterMinCheckSecond = 0.05;
 }
