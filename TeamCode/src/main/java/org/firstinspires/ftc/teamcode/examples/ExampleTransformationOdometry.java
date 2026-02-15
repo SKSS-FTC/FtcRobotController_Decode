@@ -23,80 +23,142 @@ public class ExampleTransformationOdometry extends LinearOpMode {
     private VisionPortal visionPortal;
     private AprilTagReader aprilTagReader;
     private Transformation transformation;
+    private java.util.Queue<Long> frameTimestamps = new java.util.LinkedList<>();
+    private static final double MOVING_AVERAGE_WINDOW_SECONDS = 5.0;
 
     @Override
     public void runOpMode() {
-        telemetry.addData("Status", "Initialized");
-        telemetry.update();
+        try {
+            telemetry.addData("Status", "Initializing");
+            telemetry.update();
 
-        aprilTag = new AprilTagProcessor.Builder().build();
+            List<WebcamName> webcams = hardwareMap.getAll(WebcamName.class);
+            if (webcams == null || webcams.isEmpty()) {
+                telemetry.addData("Init Error", "No webcam found in hardware config");
+                telemetry.update();
+                sleep(2000);
+                return;
+            }
 
-        visionPortal = new VisionPortal.Builder()
-                .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
-                .addProcessor(aprilTag)
-                .build();
+            aprilTag = new AprilTagProcessor.Builder().build();
 
-        aprilTagReader = new AprilTagReader();
-        aprilTagReader.setProcessor(aprilTag);
+            visionPortal = new VisionPortal.Builder()
+                    .setCamera(webcams.get(0))
+                    .addProcessor(aprilTag)
+                    .build();
 
-        transformation = new Transformation();
-        transformation.initialize();
+            aprilTagReader = new AprilTagReader();
+            aprilTagReader.setProcessor(aprilTag);
 
-        // Register AprilTag positions in map frame (4x4 homogeneous matrices)
-        transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.TAG_20_TO_MAP);
-        transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.TAG_24_TO_MAP);
+            transformation = new Transformation();
+            transformation.initialize();
+
+            // Register AprilTag positions in map frame (4x4 homogeneous matrices)
+            transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.TAG_20_TO_MAP);
+            transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.TAG_24_TO_MAP);
+        } catch (Throwable t) {
+            telemetry.addData("Init Crash", t.getClass().getSimpleName());
+            telemetry.addData("Message", t.getMessage());
+            telemetry.update();
+            sleep(3000);
+            return;
+        }
 
         waitForStart();
 
         while (opModeIsActive()) {
-            List<AprilTagDetection> detections = aprilTagReader.getDetections();
-
-            if (detections.isEmpty()) {
-                telemetry.addData("AprilTags", "No tags detected");
-                telemetry.update();
-                sleep(100);
-                continue;
+            // Calculate FPS using 5-second moving average
+            long now = System.nanoTime();
+            frameTimestamps.add(now);
+            
+            // Remove timestamps older than moving average window
+            long windowNanos = (long) (MOVING_AVERAGE_WINDOW_SECONDS * 1_000_000_000.0);
+            while (!frameTimestamps.isEmpty() && (now - frameTimestamps.peek()) > windowNanos) {
+                frameTimestamps.remove();
             }
-
-            telemetry.addData("Total Tags Detected", detections.size());
-
-            // Single tag odometry
-            for (AprilTagDetection detection : detections) {
-                int tagId = detection.id;
-                Matrix H_camera_to_tag = aprilTagReader.getCameraToTagMatrix(tagId);
-
-                if (H_camera_to_tag != null) {
-                    RobotPose pose = transformation.getRobotPoseInMap(tagId, H_camera_to_tag);
-
-                    telemetry.addData(String.format("Tag %d Pose", tagId),
-                            "X: %.3f, Y: %.3f, Z: %.3f (m)",
-                            pose.translation[0],
-                            pose.translation[1],
-                            pose.translation[2]);
+            
+            double fps = 0.0;
+            if (frameTimestamps.size() >= 2) {
+                long oldestValue = frameTimestamps.peek();
+                int frameCount = frameTimestamps.size() - 1;  // number of intervals
+                double timeWindowSeconds = (now - oldestValue) / 1_000_000_000.0;
+                if (timeWindowSeconds > 0) {
+                    fps = frameCount / timeWindowSeconds;
                 }
             }
 
-            // Multi-tag robust odometry (if 2+ tags detected)
-            if (detections.size() >= 2) {
-                List<Transformation.TagDetection> tagDetections = new ArrayList<>();
+            try {
+                List<AprilTagDetection> detections = aprilTagReader.getDetections();
+
+                if (detections.isEmpty()) {
+                    telemetry.addData("AprilTags", "No tags detected");
+                    telemetry.addData("Frequency (Hz)", fps);
+                    telemetry.update();
+                    sleep(100);
+                    continue;
+                }
+
+                telemetry.addData("Frequency (Hz)", fps);
+                telemetry.addData("Total Tags Detected", detections.size());
+
+                // Single tag odometry
                 for (AprilTagDetection detection : detections) {
-                    Matrix H_camera_to_tag = aprilTagReader.getCameraToTagMatrix(detection.id);
+                    int tagId = detection.id;
+                    Matrix H_camera_to_tag = aprilTagReader.getCameraToTagMatrix(tagId);
+
                     if (H_camera_to_tag != null) {
-                        tagDetections.add(new Transformation.TagDetection(detection.id, H_camera_to_tag));
+                        RobotPose pose = transformation.getRobotPoseInMap(tagId, H_camera_to_tag);
+                        if (pose == null) {
+                            continue;
+                        }
+
+                        double yawRad = Math.atan2(pose.rotationMatrix[1][0], pose.rotationMatrix[0][0]);
+                        double yawDeg = Math.toDegrees(yawRad);
+
+                        telemetry.addData(String.format("Tag %d Pose [M]", tagId),
+                            "X_M: %.3f, Y_M: %.3f, Z_M: %.3f (m), Yaw_M: %.1f deg",
+                                pose.translation[0],
+                                pose.translation[1],
+                                pose.translation[2],
+                                yawDeg);
                     }
                 }
 
-                RobotPose robustPose = transformation.getRobotPoseInMapFromMultipleTags(tagDetections);
+                // Multi-tag robust odometry (if 2+ tags detected)
+                if (detections.size() >= 2) {
+                    List<Transformation.TagDetection> tagDetections = new ArrayList<>();
+                    for (AprilTagDetection detection : detections) {
+                        Matrix H_camera_to_tag = aprilTagReader.getCameraToTagMatrix(detection.id);
+                        if (H_camera_to_tag != null) {
+                            tagDetections.add(new Transformation.TagDetection(detection.id, H_camera_to_tag));
+                        }
+                    }
 
-                telemetry.addData("Multi-Tag Averaged Pose",
-                        "X: %.3f, Y: %.3f, Z: %.3f (m)",
-                        robustPose.translation[0],
-                        robustPose.translation[1],
-                        robustPose.translation[2]);
+                    RobotPose robustPose = transformation.getRobotPoseInMapFromMultipleTags(tagDetections);
+                    if (robustPose != null) {
+                        double robustYawRad = Math.atan2(robustPose.rotationMatrix[1][0], robustPose.rotationMatrix[0][0]);
+                        double robustYawDeg = Math.toDegrees(robustYawRad);
+                        telemetry.addData("Multi-Tag Averaged Pose [M]",
+                            "X_M: %.3f, Y_M: %.3f, Z_M: %.3f (m), Yaw_M: %.1f deg",
+                            robustPose.translation[0],
+                            robustPose.translation[1],
+                            robustPose.translation[2],
+                            robustYawDeg);
+                    }
+                }
+
+                telemetry.update();
+                // sleep(100);
+            } catch (Throwable t) {
+                telemetry.addData("Runtime Crash", t.getClass().getSimpleName());
+                telemetry.addData("Message", t.getMessage());
+                telemetry.update();
+                sleep(200);
             }
+        }
 
-            telemetry.update();
-            sleep(100);
+        if (visionPortal != null) {
+            visionPortal.close();
         }
     }
 }

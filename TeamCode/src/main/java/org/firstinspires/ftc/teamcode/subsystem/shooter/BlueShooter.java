@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystem.shooter;
 
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.BLUE_SHOOTING_TARGET_POSITION_MAP;
-import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterEncoder;
+import static org.firstinspires.ftc.teamcode.subsystem.RobotState.shooterEncoder;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;

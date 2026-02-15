@@ -6,11 +6,10 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.firstinspires.ftc.teamcode.subsystem.AprilTagReader;
-import org.firstinspires.ftc.teamcode.subsystem.Transformation;
 
 import Jama.Matrix;
-import java.util.ArrayList;
 import java.util.List;
 
 @TeleOp(name = "ExampleAprilTagReader", group = "Examples")
@@ -18,18 +17,25 @@ public class ExampleAprilTagReader extends LinearOpMode {
 
     private AprilTagReader aprilTagReader;
     private VisionPortal visionPortal;
+    private java.util.Queue<Long> frameTimestamps = new java.util.LinkedList<>();
+    private static final double MOVING_AVERAGE_WINDOW_SECONDS = 5.0;
 
     @Override
     public void runOpMode() {
 
-        // Initialize AprilTagReader subsystem
         aprilTagReader = new AprilTagReader();
 
-        // Initialize VisionPortal with camera and AprilTag processor
-        VisionPortal.Builder builder = new VisionPortal.Builder();
+        // TODO: Update AprilTag initialization to match current SDK API
+        // AprilTagProcessor aprilTagProcessor = new AprilTagProcessor.Builder()
+        //         .setTagFamily(AprilTagGameDatabase.getCurrentGameTagFamily())
+        //         .setTagLibrary(AprilTagGameDatabase.getTagLibrary())
+        //         .build();
+        AprilTagProcessor aprilTagProcessor = new AprilTagProcessor.Builder().build();
 
-        // Add AprilTag processor from the subsystem
-        builder.addProcessor(aprilTagReader.getProcessor());
+        aprilTagReader.setProcessor(aprilTagProcessor);
+
+        VisionPortal.Builder builder = new VisionPortal.Builder();
+        builder.addProcessor(aprilTagProcessor);
 
         // Set camera (webcam will be selected if configured)
         CameraName cameraName = hardwareMap.get(CameraName.class, "Webcam 1");
@@ -46,49 +52,50 @@ public class ExampleAprilTagReader extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            // Calculate FPS using 5-second moving average
+            long now = System.nanoTime();
+            frameTimestamps.add(now);
+            
+            // Remove timestamps older than moving average window
+            long windowNanos = (long) (MOVING_AVERAGE_WINDOW_SECONDS * 1_000_000_000.0);
+            while (!frameTimestamps.isEmpty() && (now - frameTimestamps.peek()) > windowNanos) {
+                frameTimestamps.remove();
+            }
+            
+            double fps = 0.0;
+            if (frameTimestamps.size() >= 2) {
+                long oldestValue = frameTimestamps.peek();
+                int frameCount = frameTimestamps.size() - 1;  // number of intervals
+                double timeWindowSeconds = (now - oldestValue) / 1_000_000_000.0;
+                if (timeWindowSeconds > 0) {
+                    fps = frameCount / timeWindowSeconds;
+                }
+            }
+
             // Get detections directly - VisionPortal handles frame processing automatically
             List<AprilTagDetection> currentDetections = aprilTagReader.getDetections();
 
+            telemetry.addData("Frequency (Hz)", fps);
             telemetry.addData("# AprilTags Detected", currentDetections.size());
 
             if (currentDetections.size() > 0) {
                 for (AprilTagDetection detection : currentDetections) {
-                    if (detection.metadata != null) {
+                    if (detection.ftcPose != null) {
                         telemetry.addData("Tag ID", detection.id);
-                    telemetry.addData(" XYZ (inch) | RPY (deg)",
-                            "x=%.3f, y=%.3f, z=%.3f | r=%.1f, p=%.1f, y=%.1f",
-                            detection.ftcPose.x,
-                            detection.ftcPose.y,
-                            detection.ftcPose.z,
-                            detection.ftcPose.roll,
-                            detection.ftcPose.pitch,
-                            detection.ftcPose.yaw);
+
+                        Matrix hTagToCamera = aprilTagReader.getTagToCameraMatrix(detection.id);
+                        telemetry.addData("Tag->Camera T (m)",
+                                "x=%.3f, y=%.3f, z=%.3f",
+                                hTagToCamera.get(0, 3),
+                                hTagToCamera.get(1, 3),
+                                hTagToCamera.get(2, 3));
+                        telemetry.addData("Tag->Camera R (deg)",
+                                "roll=%.1f, pitch=%.1f, yaw=%.1f",
+                                Math.toDegrees(Math.atan2(hTagToCamera.get(2, 1), hTagToCamera.get(2, 2))),
+                                Math.toDegrees(Math.atan2(-hTagToCamera.get(2, 0),
+                                        Math.sqrt(Math.pow(hTagToCamera.get(2, 1), 2) + Math.pow(hTagToCamera.get(2, 2), 2)))),
+                                Math.toDegrees(Math.atan2(hTagToCamera.get(1, 0), hTagToCamera.get(0, 0))));
                     }
-                }
-
-                // Convert to Transformation.TagDetection and compute robot pose
-                List<Transformation.TagDetection> tagDetections = new ArrayList<>();
-                for (AprilTagDetection detection : currentDetections) {
-                    Matrix H_camera_to_tag = aprilTagReader.getCameraToTagMatrix(detection.id);
-                    if (H_camera_to_tag != null) {
-                        tagDetections.add(new Transformation.TagDetection(detection.id, H_camera_to_tag));
-                    }
-                }
-
-                Transformation.RobotPose robotPose = Transformation.getRobotPoseInMapFromMultipleTags(tagDetections);
-
-                if (robotPose != null) {
-                    double[] position = robotPose.getPosition();
-                    telemetry.addData("Robot Position (meters)",
-                            "X: %.3f, Y: %.3f, Z: %.3f",
-                            position[0], position[1], position[2]);
-
-                    double[][] R = robotPose.getOrientationMatrix();
-                    double yaw = Math.atan2(R[1][0], R[0][0]);
-                    double yawDegrees = Math.toDegrees(yaw);
-                    telemetry.addData("Robot Yaw", "%.2f degrees", yawDegrees);
-                } else {
-                    telemetry.addData("Robot Pose", "Unable to compute (tags not registered?)");
                 }
             } else {
                 telemetry.addData("Status", "No AprilTags detected");

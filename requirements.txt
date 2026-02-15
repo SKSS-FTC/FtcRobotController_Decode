@@ -1,0 +1,19 @@
+# Python dependencies for YOLOv8 model conversion and testing
+# Python version: 3.11.* (required for TensorFlow compatibility)
+
+# Core ML/DL libraries
+tensorflow==2.15.0
+tf-keras==2.15.0
+numpy<1.24
+
+# ONNX support
+onnx==1.16.0
+onnx-tf==1.10.0
+onnx-graphsurgeon==0.5.8
+onnxsim==0.4.33
+
+# Model conversion tools
+onnx2tf
+
+# Utility tools
+requests==2.31.0
