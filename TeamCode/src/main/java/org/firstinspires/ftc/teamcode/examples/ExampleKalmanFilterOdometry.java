@@ -115,11 +115,7 @@ public class ExampleKalmanFilterOdometry extends LinearOpMode {
                 .setSlipProcessNoiseGain(2.0)
                 .build();
 
-        try {
-            imu = hardwareMap.get(IMU.class, "imu");
-        } catch (RuntimeException ignored) {
-            imu = null;
-        }
+        imu = hardwareMap.get(IMU.class, "imu");
 
         Pose initialPose = estimateInitialPoseFromAprilTagWarmup(APRILTAG_WARMUP_MILLIS);
         if (initialPose == null) {
@@ -202,16 +198,12 @@ public class ExampleKalmanFilterOdometry extends LinearOpMode {
 
             boolean imuUpdated = false;
             if (imu != null) {
-                try {
-                    AngularVelocity angularVelocity = imu.getRobotAngularVelocity(AngleUnit.RADIANS);
-                    if (angularVelocity != null
-                            && !Double.isNaN(angularVelocity.zRotationRate)
-                            && !Double.isInfinite(angularVelocity.zRotationRate)) {
-                        kalmanFilter.updateImuYawRate(angularVelocity.zRotationRate);
-                        imuUpdated = true;
-                    }
-                } catch (RuntimeException ignored) {
-                    imuUpdated = false;
+                AngularVelocity angularVelocity = imu.getRobotAngularVelocity(AngleUnit.RADIANS);
+                if (angularVelocity != null
+                        && !Double.isNaN(angularVelocity.zRotationRate)
+                        && !Double.isInfinite(angularVelocity.zRotationRate)) {
+                    kalmanFilter.updateImuYawRate(angularVelocity.zRotationRate);
+                    imuUpdated = true;
                 }
             }
 

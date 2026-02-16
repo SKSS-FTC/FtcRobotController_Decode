@@ -14,6 +14,7 @@ import org.firstinspires.ftc.teamcode.subsystem.Constants;
 
 import Jama.Matrix;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @TeleOp(name = "ExampleTransformationOdometry", group = "Examples")
@@ -67,38 +68,19 @@ public class ExampleTransformationOdometry extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            // Calculate FPS using 5-second moving average
-            long now = System.nanoTime();
-            frameTimestamps.add(now);
-            
-            // Remove timestamps older than moving average window
-            long windowNanos = (long) (MOVING_AVERAGE_WINDOW_SECONDS * 1_000_000_000.0);
-            while (!frameTimestamps.isEmpty() && (now - frameTimestamps.peek()) > windowNanos) {
-                frameTimestamps.remove();
-            }
-            
-            double fps = 0.0;
-            if (frameTimestamps.size() >= 2) {
-                long oldestValue = frameTimestamps.peek();
-                int frameCount = frameTimestamps.size() - 1;  // number of intervals
-                double timeWindowSeconds = (now - oldestValue) / 1_000_000_000.0;
-                if (timeWindowSeconds > 0) {
-                    fps = frameCount / timeWindowSeconds;
-                }
-            }
-
             try {
                 List<AprilTagDetection> detections = aprilTagReader.getDetections();
+                double frameRateHz = updateFrameRateHz();
+
+                telemetry.addData("Frame Rate (Hz)", String.format("%.2f", frameRateHz));
 
                 if (detections.isEmpty()) {
                     telemetry.addData("AprilTags", "No tags detected");
-                    telemetry.addData("Frequency (Hz)", fps);
                     telemetry.update();
                     sleep(100);
                     continue;
                 }
 
-                telemetry.addData("Frequency (Hz)", fps);
                 telemetry.addData("Total Tags Detected", detections.size());
 
                 // Single tag odometry
@@ -148,7 +130,7 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                 }
 
                 telemetry.update();
-                // sleep(100);
+                sleep(20);
             } catch (Throwable t) {
                 telemetry.addData("Runtime Crash", t.getClass().getSimpleName());
                 telemetry.addData("Message", t.getMessage());
@@ -160,5 +142,24 @@ public class ExampleTransformationOdometry extends LinearOpMode {
         if (visionPortal != null) {
             visionPortal.close();
         }
+    }
+
+    private double updateFrameRateHz() {
+        long now = System.nanoTime();
+        frameTimestamps.add(now);
+
+        long windowNanos = (long) (MOVING_AVERAGE_WINDOW_SECONDS * 1_000_000_000.0);
+        while (!frameTimestamps.isEmpty() && (now - frameTimestamps.peek()) > windowNanos) {
+            frameTimestamps.remove();
+        }
+
+        if (frameTimestamps.size() < 2) {
+            return 0.0;
+        }
+
+        long oldest = frameTimestamps.peek();
+        int frames = frameTimestamps.size() - 1;
+        double elapsedSeconds = (now - oldest) / 1_000_000_000.0;
+        return elapsedSeconds > 0 ? frames / elapsedSeconds : 0.0;
     }
 }

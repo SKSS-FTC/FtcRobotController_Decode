@@ -5,603 +5,46 @@ import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Rect;
+
 import android.graphics.Paint;
-
-import org.opencv.android.Utils;
-import org.opencv.core.Mat;
-
-
-import org.firstinspires.ftc.robotcore.external.Telemetry;
+import android.graphics.RectF;
+import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
 
+import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration;
+import org.firstinspires.ftc.vision.VisionProcessor;
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import java.util.Locale;
 /**
- * YOLO Object Detection Subsystem
+ * YOLO Object Detection Subsystem - YOLO26 One-to-One head only.
  *
- * Uses TensorFlow Lite for real-time object detection with YOLOv8 TFLite models.
- * Supports YOLOv8n (nano) models embedded in assets.
+ * Supports FP32, FP16, INT8, and UINT8 TFLite models.
+ * Expected model format: [x1, y1, x2, y2, confidence, class_id]
  *
- * Lifecycle:
- * - init(): Load model from assets, prepare interpreter
- * - detect(): Run inference on bitmap from camera
- * - close(): Release TensorFlow Lite resources
+ * Basic usage:
+ *   DetectionYOLO detector = new DetectionYOLO.Builder().build();
+ *   detector.init(context);
+ *   List<DetectionYOLO.Detection> results = detector.detect(bitmap);
+ *   detector.close();
  */
 public class DetectionYOLO {
-    private static final String TAG = "DetectionYOLO";
+
     private static final float DEFAULT_CONFIDENCE_THRESHOLD = 0.25f;
-    private static final float IOU_THRESHOLD = 0.45f;
-
-    private Interpreter interpreter;
-    private TensorFlowFloatModel model;
-
-    private int inputSize = 640;
-    private float confidenceThreshold = DEFAULT_CONFIDENCE_THRESHOLD;
-
-    private Datalogger datalogger;  // YOLO default input size
-    private int numThreads = 4;
-    private int modelInputWidth = 640;
-    private int modelInputHeight = 640;
-    private boolean inputIsNCHW = false;
-    private String initError;
-    private int[] inputTensorShape;
-    private int[] outputTensorShape;
-    private final Object inferenceLock = new Object();
-    private volatile boolean closing = false;
-
-    private Telemetry telemetry;
-    private boolean showDebugInfo = false;
-    
-    // FPS tracking
-    private long lastFrameTimeNanos = 0;
-    private double fps = 0.0;
-    private double fpsMovingAverage = 0.0;
-    private int fpsSampleCount = 0;
-    private double fpsSum = 0.0;
-    private static final double FPS_MOVING_AVERAGE_WEIGHT = 0.1;
-    private static final double INFERENCE_MOVING_AVERAGE_WEIGHT = 0.1;
-
-    private double inferenceTimeMs = 0.0;
-    private double inferenceTimeMovingAverageMs = 0.0;
-    private double inferenceTimeSumMs = 0.0;
-    private double inferenceFps = 0.0;
-    private double inferenceFpsMovingAverage = 0.0;
-    private double inferenceFpsSum = 0.0;
-    private int inferenceSampleCount = 0;
-
-    /**
-     * Detection result
-     */
-    public static class Detection {
-        public int classId;
-        public String className;
-        public float confidence;
-        public float x, y;      // Center coordinates (normalized 0-1)
-        public float width, height;  // Dimensions (normalized 0-1)
-
-        public Detection(int classId, String className, float confidence,
-                         float x, float y, float width, float height) {
-            this.classId = classId;
-            this.className = className;
-            this.confidence = confidence;
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s (%.2f%%) [%.2f, %.2f, %.2f x %.2f]",
-                    className, confidence * 100, x, y, width, height);
-        }
-    }
-
-    /**
-     * Vision processor integrated into the DetectionYOLO subsystem so examples can
-     * reuse drawing and processing logic without redefining a local processor.
-     */
-    public static class Processor implements org.firstinspires.ftc.vision.VisionProcessor {
-        private final DetectionYOLO detector;
-        private final Paint boxPaint = new Paint();
-        private final Paint textPaint = new Paint();
-        private volatile boolean enabled = true;
-        private volatile List<Detection> lastDetections = new ArrayList<>();
-
-        public Processor(DetectionYOLO detector) {
-            this.detector = detector;
-            boxPaint.setColor(Color.GREEN);
-            boxPaint.setStyle(Paint.Style.STROKE);
-            boxPaint.setStrokeWidth(4);
-
-            textPaint.setColor(Color.WHITE);
-            textPaint.setTextSize(32f);
-            textPaint.setAntiAlias(true);
-        }
-
-        @Override
-        public void init(int width, int height, org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration calibration) {
-            // No-op
-        }
-
-        @Override
-        public Object processFrame(Mat frame, long captureTimeNanos) {
-            if (!enabled || detector == null || !detector.isReady()) {
-                lastDetections = new ArrayList<>();
-                return lastDetections;
-            }
-
-            Bitmap bitmap = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(frame, bitmap);
-
-            List<Detection> detections = detector.detect(bitmap);
-            bitmap.recycle();
-
-            lastDetections = detections;
-            return detections;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight,
-                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity,
-                                Object userContext) {
-            List<Detection> detections;
-            if (userContext instanceof List) {
-                detections = (List<Detection>) userContext;
-            } else {
-                detections = lastDetections;
-            }
-
-            if (detections == null) return;
-
-            for (Detection d : detections) {
-                float left = d.x * onscreenWidth;
-                float top = d.y * onscreenHeight;
-                float right = (d.x + d.width) * onscreenWidth;
-                float bottom = (d.y + d.height) * onscreenHeight;
-
-                canvas.drawRect(left, top, right, bottom, boxPaint);
-                canvas.drawText(
-                        d.className + String.format(" %.0f%%", d.confidence * 100f),
-                        left,
-                        Math.max(32, top - 8),
-                        textPaint
-                );
-            }
-        }
-
-        public List<Detection> getLastDetections() { return lastDetections; }
-
-        public void shutdown() {
-            enabled = false;
-            lastDetections = new ArrayList<>();
-        }
-    }
-
-    /** Create a processor tied to this DetectionYOLO instance. */
-    public Processor createProcessor() { return new Processor(this); }
-
-    /**
-     * Builder for DetectionYOLO configuration
-     */
-    public static class Builder {
-        private String modelPath = "yolov8n.tflite";
-        private int inputSize = 640;
-        private float confidenceThreshold = DEFAULT_CONFIDENCE_THRESHOLD;
-
-    private Datalogger datalogger;
-        private int numThreads = 4;
-        private Telemetry telemetry;
-        private boolean showDebugInfo = false;
-
-        public Builder modelPath(String modelPath) {
-            this.modelPath = modelPath;
-            return this;
-        }
-
-        public Builder inputSize(int inputSize) {
-            this.inputSize = inputSize;
-            return this;
-        }
-
-        public Builder numThreads(int numThreads) {
-            this.numThreads = numThreads;
-            return this;
-        }
-
-        public Builder confidenceThreshold(float confidenceThreshold) {
-            this.confidenceThreshold = confidenceThreshold;
-            return this;
-        }
-
-        public Builder telemetry(Telemetry telemetry) {
-            this.telemetry = telemetry;
-            return this;
-        }
-
-        public Builder showDebugInfo(boolean showDebugInfo) {
-            this.showDebugInfo = showDebugInfo;
-            return this;
-        }
-
-        public DetectionYOLO build() {
-            return new DetectionYOLO(this);
-        }
-    }
-
-    private DetectionYOLO(Builder builder) {
-        this.inputSize = builder.inputSize;
-        this.confidenceThreshold = builder.confidenceThreshold;
-        this.numThreads = builder.numThreads;
-        this.telemetry = builder.telemetry;
-        this.showDebugInfo = builder.showDebugInfo;
-        this.modelPath = builder.modelPath;
-    }
-
-    // Internal helper class for scikit-learn model interface
-    private static class TensorFlowFloatModel {
-        private MappedByteBuffer modelBuffer;
-
-        TensorFlowFloatModel(MappedByteBuffer modelBuffer) {
-            this.modelBuffer = modelBuffer;
-        }
-
-        boolean exists() {
-            return modelBuffer != null;
-        }
-    }
-
-    private String modelPath;
-
-    /**
-     * Initialize YOLO detection subsystem
-     */
-    public void init(Context context) {
-        initError = null;
-        closing = false;
-        try {
-            if (!ensureTensorFlowLiteNativeLoaded(context)) {
-                interpreter = null;
-                model = null;
-                if (telemetry != null) {
-                    telemetry.addData("ERROR", initError);
-                    telemetry.update();
-                }
-                return;
-            }
-
-            // Load model from assets
-            MappedByteBuffer tfliteModel = loadModelBuffer(context);
-            model = new TensorFlowFloatModel(tfliteModel);
-
-            // Create TensorFlow Lite interpreter
-            Interpreter.Options options = new Interpreter.Options();
-            options.setNumThreads(numThreads);
-
-            interpreter = new Interpreter(tfliteModel, options);
-
-            // Verify model input shape and detect layout (NHWC/NCHW)
-            int[] inputShape = interpreter.getInputTensor(0).shape();
-            inputTensorShape = inputShape;
-            if (inputShape.length != 4) {
-                if (telemetry != null) {
-                    telemetry.addLine("ERROR: Unsupported model input rank");
-                    telemetry.update();
-                }
-                initError = "Unsupported input rank: " + inputShape.length;
-                interpreter.close();
-                interpreter = null;
-                return;
-            }
-
-            if (inputShape[3] == 3) {
-                inputIsNCHW = false;
-                modelInputHeight = inputShape[1];
-                modelInputWidth = inputShape[2];
-            } else if (inputShape[1] == 3) {
-                inputIsNCHW = true;
-                modelInputHeight = inputShape[2];
-                modelInputWidth = inputShape[3];
-            } else {
-                if (telemetry != null) {
-                    telemetry.addLine("ERROR: Unsupported input tensor layout");
-                    telemetry.update();
-                }
-                initError = "Unsupported input layout: " + java.util.Arrays.toString(inputShape);
-                interpreter.close();
-                interpreter = null;
-                return;
-            }
-
-            if (modelInputWidth <= 0 || modelInputHeight <= 0) {
-                initError = "Invalid model input shape: " + java.util.Arrays.toString(inputShape);
-                interpreter.close();
-                interpreter = null;
-                return;
-            }
-
-            outputTensorShape = interpreter.getOutputTensor(0).shape();
-
-            inputSize = Math.max(modelInputWidth, modelInputHeight);
-
-            if (showDebugInfo && telemetry != null) {
-                telemetry.addData("DetectionYOLO", "Model loaded successfully");
-                telemetry.addData("Input shape", java.util.Arrays.toString(inputShape));
-                telemetry.addData("Output shape", java.util.Arrays.toString(outputTensorShape));
-                telemetry.addData("Layout", inputIsNCHW ? "NCHW" : "NHWC");
-                telemetry.update();
-            }
-
-            // Model initialized
-
-        } catch (IOException e) {
-            // Error logged above via telemetry
-            initError = "Failed to load model: " + e.getMessage();
-            if (telemetry != null) {
-                telemetry.addData("ERROR", "Failed to load model: " + modelPath);
-                telemetry.addData("Details", e.getMessage());
-                telemetry.update();
-            }
-        } catch (Throwable t) {
-            interpreter = null;
-            model = null;
-            initError = "YOLO init failed: " + t.getClass().getSimpleName() + " - " + t.getMessage();
-            if (telemetry != null) {
-                telemetry.addData("ERROR", "YOLO init failed");
-                telemetry.addData("Details", t.getClass().getSimpleName());
-                telemetry.update();
-            }
-        }
-    }
-
-    /**
-     * Detect objects in a bitmap image
-     */
-    public List<Detection> detect(Bitmap bitmap) {
-        if (closing) {
-            return new ArrayList<>();
-        }
-
-        // FPS calculation
-        long currentTimeNanos = System.nanoTime();
-        if (lastFrameTimeNanos > 0) {
-            long elapsedTimeNanos = currentTimeNanos - lastFrameTimeNanos;
-            double currentFps = 1e9 / elapsedTimeNanos;
-            
-            fps = currentFps;
-            
-            // Update moving average
-            if (fpsSampleCount == 0) {
-                fpsMovingAverage = currentFps;
-            } else {
-                fpsMovingAverage = (FPS_MOVING_AVERAGE_WEIGHT * currentFps + 
-                              (1.0 - FPS_MOVING_AVERAGE_WEIGHT) * fpsMovingAverage);
-            }
-            
-            fpsSum += currentFps;
-            fpsSampleCount++;
-        }
-        lastFrameTimeNanos = currentTimeNanos;
-
-        if (datalogger != null) {
-            datalogger.startFrame();
-        }
-
-        if (interpreter == null || model == null || !model.exists()) {
-            /* Removed DbgLog */
-            if (telemetry != null) {
-                telemetry.addLine("WARN: DetectionYOLO not initialized");
-            }
-            return new ArrayList<>();
-        }
-
-        // Resize and preprocess bitmap to model input size
-        Bitmap inputBitmap = Bitmap.createScaledBitmap(bitmap, modelInputWidth, modelInputHeight, false);
-
-        // Create input buffer for model layout with normalized RGB values (0-255 -> 0-1)
-        ByteBuffer inputBuffer = ByteBuffer.allocateDirect(modelInputWidth * modelInputHeight * 3 * 4)
-                .order(ByteOrder.nativeOrder());
-
-        int[] pixels = new int[modelInputWidth * modelInputHeight];
-        inputBitmap.getPixels(pixels, 0, modelInputWidth, 0, 0, modelInputWidth, modelInputHeight);
-
-        if (inputIsNCHW) {
-            for (int i = 0; i < pixels.length; i++) {
-                int pixel = pixels[i];
-                inputBuffer.putFloat(((pixel >> 16) & 0xFF) / 255.0f);
-            }
-            for (int i = 0; i < pixels.length; i++) {
-                int pixel = pixels[i];
-                inputBuffer.putFloat(((pixel >> 8) & 0xFF) / 255.0f);
-            }
-            for (int i = 0; i < pixels.length; i++) {
-                int pixel = pixels[i];
-                inputBuffer.putFloat((pixel & 0xFF) / 255.0f);
-            }
-        } else {
-            for (int i = 0; i < pixels.length; i++) {
-                int pixel = pixels[i];
-                inputBuffer.putFloat(((pixel >> 16) & 0xFF) / 255.0f);
-                inputBuffer.putFloat(((pixel >> 8) & 0xFF) / 255.0f);
-                inputBuffer.putFloat((pixel & 0xFF) / 255.0f);
-            }
-        }
-        inputBuffer.rewind();
-
-        // Prepare output tensor: [1, 84, 8400] for YOLOv8n (COCO 80 classes + 4 box coords)
-        int numDetections;
-        int numOutputClasses;
-        float[][][] output3d;
-        if (outputTensorShape != null && outputTensorShape.length == 3) {
-            output3d = new float[outputTensorShape[0]][outputTensorShape[1]][outputTensorShape[2]];
-            if (outputTensorShape[1] == 84) {
-                numOutputClasses = outputTensorShape[1];
-                numDetections = outputTensorShape[2];
-            } else if (outputTensorShape[2] == 84) {
-                numOutputClasses = outputTensorShape[2];
-                numDetections = outputTensorShape[1];
-            } else {
-                numOutputClasses = 84;
-                numDetections = outputTensorShape[1];
-            }
-        } else {
-            numDetections = 8400;
-            numOutputClasses = 84;
-            output3d = new float[1][numOutputClasses][numDetections];
-        }
-
-        // Run inference
-        try {
-            long inferenceStartNanos = System.nanoTime();
-            synchronized (inferenceLock) {
-                if (closing || interpreter == null) {
-                    inputBitmap.recycle();
-                    return new ArrayList<>();
-                }
-                interpreter.run(inputBuffer, output3d);
-            }
-            updateInferenceStats(System.nanoTime() - inferenceStartNanos);
-        } catch (RuntimeException e) {
-            if (telemetry != null) {
-                telemetry.addData("ERROR", "YOLO inference failed");
-                telemetry.addData("Details", e.getMessage());
-                telemetry.update();
-            }
-            inputBitmap.recycle();
-            return new ArrayList<>();
-        }
-
-        // Process output: extract boxes, scores, classes
-        List<Detection> detections = new ArrayList<>();
-
-        for (int i = 0; i < numDetections; i++) {
-            float cx;
-            float cy;
-            float w;
-            float h;
-            boolean classesSecond = outputTensorShape != null && outputTensorShape.length == 3 && outputTensorShape[1] == 84;
-            if (classesSecond) {
-                cx = output3d[0][0][i];
-                cy = output3d[0][1][i];
-                w = output3d[0][2][i];
-                h = output3d[0][3][i];
-            } else {
-                cx = output3d[0][i][0];
-                cy = output3d[0][i][1];
-                w = output3d[0][i][2];
-                h = output3d[0][i][3];
-            }
-
-            // Find max confidence and class
-            int maxClassId = 0;
-            float maxConfidence = 0;
-            for (int c = 4; c < numOutputClasses; c++) {
-                float score = classesSecond ? output3d[0][c][i] : output3d[0][i][c];
-                if (score > maxConfidence) {
-                    maxConfidence = score;
-                    maxClassId = c - 4;
-                }
-            }
-
-            // Filter by confidence threshold
-            if (maxConfidence > confidenceThreshold) {
-                // Convert center coords to corner coords (x1, y1, x2, y2)
-                float x1 = cx - w / 2;
-                float y1 = cy - h / 2;
-                float x2 = cx + w / 2;
-                float y2 = cy + h / 2;
-
-                // Clip to [0, 1]
-                x1 = Math.max(0, Math.min(1, x1));
-                y1 = Math.max(0, Math.min(1, y1));
-                x2 = Math.max(0, Math.min(1, x2));
-                y2 = Math.max(0, Math.min(1, y2));
-
-                detections.add(new Detection(
-                        maxClassId,
-                        getCOCOClassName(maxClassId),
-                        maxConfidence,
-                        x1, y1, x2 - x1, y2 - y1
-                ));
-            }
-        }
-
-        // Apply Non-Maximum Suppression to remove overlapping boxes
-        detections = applyNMS(detections, IOU_THRESHOLD);
-
-        if (showDebugInfo && telemetry != null) {
-            telemetry.addData("Detections", detections.size());
-            for (Detection d : detections) {
-                telemetry.addData("  " + d.className, String.format("%.1f%%", d.confidence * 100));
-            }
-            telemetry.update();
-        }
-
-        inputBitmap.recycle();
-
-        return detections;
-    }
-
-    /**
-     * Apply Non-Maximum Suppression to remove duplicate detections
-     */
-    private List<Detection> applyNMS(List<Detection> detections, float iouThreshold) {
-        if (detections.isEmpty()) {
-            return detections;
-        }
-
-        // Sort by confidence (descending)
-        detections.sort((a, b) -> Float.compare(b.confidence, a.confidence));
-
-        List<Detection> nmsDetections = new ArrayList<>();
-        boolean[] suppressed = new boolean[detections.size()];
-
-        for (int i = 0; i < detections.size(); i++) {
-            if (suppressed[i]) {
-                continue;
-            }
-
-            nmsDetections.add(detections.get(i));
-
-            for (int j = i + 1; j < detections.size(); j++) {
-                if (suppressed[j]) {
-                    continue;
-                }
-
-                if (calculateIOU(detections.get(i), detections.get(j)) > iouThreshold) {
-                    suppressed[j] = true;
-                }
-            }
-        }
-
-        return nmsDetections;
-    }
-
-    /**
-     * Calculate Intersection over Union (IoU) between two detections
-     */
-    private float calculateIOU(Detection a, Detection b) {
-        float interX1 = Math.max(a.x, b.x);
-        float interY1 = Math.max(a.y, b.y);
-        float interX2 = Math.min(a.x + a.width, b.x + b.width);
-        float interY2 = Math.min(a.y + a.height, b.y + b.height);
-
-        float interArea = Math.max(0, interX2 - interX1) * Math.max(0, interY2 - interY1);
-
-        float aArea = a.width * a.height;
-        float bArea = b.width * b.height;
-
-        return interArea / (aArea + bArea - interArea);
-    }
 
     private static final String[] COCO_CLASSES = {
             "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
@@ -615,246 +58,528 @@ public class DetectionYOLO {
             "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
             "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
     };
-    
-    /**
-     * Get COCO class name by class ID
-     */
-    public void setDatalogger(Datalogger datalogger) {
-        this.datalogger = datalogger;
+
+    private String modelPath;
+    private String labelsPath;
+    private float confidenceThreshold;
+    private int numThreads;
+
+    private Interpreter interpreter;
+    private MappedByteBuffer modelBuffer;
+    private String initError;
+
+    private int modelInputWidth = 640;
+    private int modelInputHeight = 640;
+    private boolean inputIsNCHW = false;
+    private DataType inputDataType = DataType.FLOAT32;
+    private float inputQuantScale = 1.0f;
+    private int inputQuantZeroPoint = 0;
+
+    private DataType outputDataType = DataType.FLOAT32;
+    private float outputQuantScale = 1.0f;
+    private int outputQuantZeroPoint = 0;
+
+    private int numCandidates = 300; // YOLO26 O2O max boxes
+    private boolean outputBoxesOnLastDim = true;
+    private final Object lastDetectionsLock = new Object();
+    private List<Detection> lastDetections = new ArrayList<>();
+
+    private final List<String> classNames = new ArrayList<>();
+    private final Object inferenceLock = new Object();
+    private volatile boolean closing = false;
+
+    public static class Detection {
+        public final int classId;
+        public final String className;
+        public final float confidence;
+        public final float x, y;
+        public final float width, height;
+
+        public Detection(int classId, String className, float confidence,
+                         float x, float y, float width, float height) {
+            this.classId = classId;
+            this.className = className;
+            this.confidence = confidence;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+        }
     }
 
-    /**
-     * Get current FPS (instantaneous)
-     */
-    public double getFps() {
-        return fps;
+    public static class Builder {
+        private String modelPath = "yolo26n.tflite";
+        private String labelsPath = null;
+        private float confidenceThreshold = DEFAULT_CONFIDENCE_THRESHOLD;
+        private int numThreads = 4;
+
+        public Builder modelPath(String modelPath) { this.modelPath = modelPath; return this; }
+        public Builder labelsPath(String labelsPath) { this.labelsPath = labelsPath; return this; }
+        public Builder numThreads(int numThreads) { this.numThreads = numThreads; return this; }
+        public Builder confidenceThreshold(float t) { this.confidenceThreshold = t; return this; }
+
+        public DetectionYOLO build() { return new DetectionYOLO(this); }
     }
 
-    /**
-     * Get moving average FPS
-     */
-    public double getFpsMovingAverage() {
-        return fpsMovingAverage;
+    private DetectionYOLO(Builder b) {
+        this.modelPath = b.modelPath;
+        this.labelsPath = b.labelsPath;
+        this.confidenceThreshold = b.confidenceThreshold;
+        this.numThreads = b.numThreads;
     }
 
-    /**
-     * Get average FPS since last reset
-     */
-    public double getFpsAverage() {
-        return fpsSampleCount > 0 ? fpsSum / fpsSampleCount : 0.0;
+    public void init(Context context) {
+        initError = null;
+        closing = false;
+
+        try {
+            if (!ensureTensorFlowLiteNativeLoaded(context)) return;
+
+            modelBuffer = loadModelBuffer(context);
+
+            Interpreter.Options options = new Interpreter.Options();
+            options.setNumThreads(numThreads);
+            interpreter = new Interpreter(modelBuffer, options);
+
+            // Read input tensor metadata
+            org.tensorflow.lite.Tensor inTensor = interpreter.getInputTensor(0);
+            int[] inputShape = inTensor.shape();
+            inputDataType = inTensor.dataType();
+
+            org.tensorflow.lite.Tensor.QuantizationParams inQ = inTensor.quantizationParams();
+            if (inQ != null && inQ.getScale() > 0f) {
+                inputQuantScale = inQ.getScale();
+                inputQuantZeroPoint = inQ.getZeroPoint();
+            }
+
+            if (inputShape.length == 4) {
+                if (inputShape[3] == 3) {
+                    inputIsNCHW = false;
+                    modelInputHeight = inputShape[1];
+                    modelInputWidth = inputShape[2];
+                } else if (inputShape[1] == 3) {
+                    inputIsNCHW = true;
+                    modelInputHeight = inputShape[2];
+                    modelInputWidth = inputShape[3];
+                }
+            }
+
+            // Read output tensor metadata - YOLO26 O2O format: [1, N, 6] or [1, 6, N]
+            org.tensorflow.lite.Tensor outTensor = interpreter.getOutputTensor(0);
+            int[] outputShape = outTensor.shape();
+            outputDataType = outTensor.dataType();
+
+            org.tensorflow.lite.Tensor.QuantizationParams outQ = outTensor.quantizationParams();
+            if (outQ != null && outQ.getScale() > 0f) {
+                outputQuantScale = outQ.getScale();
+                outputQuantZeroPoint = outQ.getZeroPoint();
+            }
+
+            if (outputShape.length != 3 || (outputShape[1] != 6 && outputShape[2] != 6)) {
+                initError = "YOLO26 O2O expects [1,N,6] or [1,6,N]; got " + Arrays.toString(outputShape);
+                interpreter = null;
+                modelBuffer = null;
+                return;
+            }
+
+            outputBoxesOnLastDim = outputShape[2] == 6;
+            numCandidates = outputBoxesOnLastDim ? outputShape[1] : outputShape[2];
+
+            loadClassNames(context);
+
+        } catch (IOException e) {
+            initError = "Failed to load model: " + e.getMessage();
+            interpreter = null;
+            modelBuffer = null;
+        } catch (Throwable t) {
+            initError = "YOLO init failed: " + t.getMessage();
+            interpreter = null;
+            modelBuffer = null;
+        }
     }
 
-    /**
-     * Get number of FPS samples collected
-     */
-    public int getFpsSampleCount() {
-        return fpsSampleCount;
-    }
-
-    public double getInferenceTimeMs() {
-        return inferenceTimeMs;
-    }
-
-    public double getInferenceTimeMovingAverageMs() {
-        return inferenceTimeMovingAverageMs;
-    }
-
-    public double getInferenceTimeAverageMs() {
-        return inferenceSampleCount > 0 ? inferenceTimeSumMs / inferenceSampleCount : 0.0;
-    }
-
-    public double getInferenceFps() {
-        return inferenceFps;
-    }
-
-    public double getInferenceFpsMovingAverage() {
-        return inferenceFpsMovingAverage;
-    }
-
-    public double getInferenceFpsAverage() {
-        return inferenceSampleCount > 0 ? inferenceFpsSum / inferenceSampleCount : 0.0;
-    }
-
-    public int getInferenceSampleCount() {
-        return inferenceSampleCount;
-    }
-
-    public void resetBenchmark() {
-        resetFps();
-    }
-
-    /**
-     * Reset FPS tracking
-     */
-    public void resetFps() {
-        lastFrameTimeNanos = 0;
-        fps = 0.0;
-        fpsMovingAverage = 0.0;
-        fpsSampleCount = 0;
-        fpsSum = 0.0;
-        inferenceTimeMs = 0.0;
-        inferenceTimeMovingAverageMs = 0.0;
-        inferenceTimeSumMs = 0.0;
-        inferenceFps = 0.0;
-        inferenceFpsMovingAverage = 0.0;
-        inferenceFpsSum = 0.0;
-        inferenceSampleCount = 0;
-    }
-
-    private void updateInferenceStats(long inferenceElapsedNanos) {
-        if (inferenceElapsedNanos <= 0) {
-            return;
+    public List<Detection> detect(Bitmap bitmap) {
+        if (closing || interpreter == null) {
+            return new ArrayList<>();
         }
 
-        double currentInferenceTimeMs = inferenceElapsedNanos / 1_000_000.0;
-        double currentInferenceFps = 1_000_000_000.0 / inferenceElapsedNanos;
+        // Preprocess
+        PreprocessResult preprocess = createLetterboxedInput(bitmap);
+        Bitmap inputBitmap = preprocess.inputBitmap;
+        ByteBuffer inputBuffer = preprocessInput(inputBitmap);
 
-        inferenceTimeMs = currentInferenceTimeMs;
-        inferenceFps = currentInferenceFps;
+        // Allocate output buffer
+        org.tensorflow.lite.Tensor outTensor = interpreter.getOutputTensor(0);
+        ByteBuffer outputBuffer = ByteBuffer.allocateDirect(outTensor.numBytes());
+        outputBuffer.order(ByteOrder.nativeOrder());
 
-        if (inferenceSampleCount == 0) {
-            inferenceTimeMovingAverageMs = currentInferenceTimeMs;
-            inferenceFpsMovingAverage = currentInferenceFps;
+        // Run inference
+        try {
+            synchronized (inferenceLock) {
+                if (closing || interpreter == null) {
+                    inputBitmap.recycle();
+                    return new ArrayList<>();
+                }
+                interpreter.run(inputBuffer, outputBuffer);
+            }
+        } catch (RuntimeException e) {
+            inputBitmap.recycle();
+            return new ArrayList<>();
+        }
+
+        // Parse output
+        outputBuffer.rewind();
+        float[] output = readOutputToFloat(outputBuffer);
+
+        List<Detection> detections = parseOneToOneOutput(output, bitmap.getWidth(), bitmap.getHeight(), preprocess);
+
+        inputBitmap.recycle();
+        return detections;
+    }
+
+    private static class PreprocessResult {
+        final Bitmap inputBitmap;
+        final float scale;
+        final float padX;
+        final float padY;
+
+        PreprocessResult(Bitmap inputBitmap, float scale, float padX, float padY) {
+            this.inputBitmap = inputBitmap;
+            this.scale = scale;
+            this.padX = padX;
+            this.padY = padY;
+        }
+    }
+
+    private PreprocessResult createLetterboxedInput(Bitmap src) {
+        int srcW = src.getWidth();
+        int srcH = src.getHeight();
+
+        float scale = Math.min(modelInputWidth / (float) srcW, modelInputHeight / (float) srcH);
+        int resizedW = Math.max(1, Math.round(srcW * scale));
+        int resizedH = Math.max(1, Math.round(srcH * scale));
+
+        int dx = (modelInputWidth - resizedW) / 2;
+        int dy = (modelInputHeight - resizedH) / 2;
+
+        Bitmap input = Bitmap.createBitmap(modelInputWidth, modelInputHeight, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(input);
+        canvas.drawColor(Color.BLACK);
+        Rect dst = new Rect(dx, dy, dx + resizedW, dy + resizedH);
+        canvas.drawBitmap(src, null, dst, null);
+
+        return new PreprocessResult(input, scale, dx, dy);
+    }
+
+    private Detection mapToOriginal(float nx, float ny, float nw, float nh,
+                                     int origW, int origH, float scale, float padX, float padY) {
+        float x1Model = nx * modelInputWidth;
+        float y1Model = ny * modelInputHeight;
+        float x2Model = (nx + nw) * modelInputWidth;
+        float y2Model = (ny + nh) * modelInputHeight;
+
+        float x1Orig = (x1Model - padX) / scale;
+        float y1Orig = (y1Model - padY) / scale;
+        float x2Orig = (x2Model - padX) / scale;
+        float y2Orig = (y2Model - padY) / scale;
+
+        x1Orig = clampRange(x1Orig, 0f, origW);
+        y1Orig = clampRange(y1Orig, 0f, origH);
+        x2Orig = clampRange(x2Orig, 0f, origW);
+        y2Orig = clampRange(y2Orig, 0f, origH);
+
+        float wOrig = x2Orig - x1Orig;
+        float hOrig = y2Orig - y1Orig;
+        if (wOrig <= 0f || hOrig <= 0f) return null;
+
+        float normX = round4(x1Orig / origW);
+        float normY = round4(y1Orig / origH);
+        float normW = round4(wOrig / origW);
+        float normH = round4(hOrig / origH);
+
+        return new Detection(-1, "", 0f, normX, normY, normW, normH);
+    }
+
+    private List<Detection> parseOneToOneOutput(float[] output, int origW, int origH, PreprocessResult preprocess) {
+        List<Detection> detections = new ArrayList<>();
+        int stride = 6;
+        int maxBoxes = Math.min(numCandidates, output.length / stride);
+
+        for (int i = 0; i < maxBoxes; i++) {
+            float x1, y1, x2, y2, score, clsIdF;
+
+            if (outputBoxesOnLastDim) { // [1, num_boxes, 6]
+                int base = i * stride;
+                x1 = output[base];
+                y1 = output[base + 1];
+                x2 = output[base + 2];
+                y2 = output[base + 3];
+                score = output[base + 4];
+                clsIdF = output[base + 5];
+            } else { // [1, 6, num_boxes]
+                x1 = output[0 * numCandidates + i];
+                y1 = output[1 * numCandidates + i];
+                x2 = output[2 * numCandidates + i];
+                y2 = output[3 * numCandidates + i];
+                score = output[4 * numCandidates + i];
+                clsIdF = output[5 * numCandidates + i];
+            }
+
+            if (score < confidenceThreshold) continue;
+
+            // Coordinates may be normalized [0,1] or absolute [0, modelInput]; normalize if needed
+            float maxCoord = Math.max(Math.max(Math.abs(x1), Math.abs(y1)), Math.max(Math.abs(x2), Math.abs(y2)));
+            if (maxCoord > 1.5f) {
+                x1 /= modelInputWidth;
+                y1 /= modelInputHeight;
+                x2 /= modelInputWidth;
+                y2 /= modelInputHeight;
+            }
+
+            float nx1 = clamp01(x1);
+            float ny1 = clamp01(y1);
+            float nx2 = clamp01(x2);
+            float ny2 = clamp01(y2);
+
+            float boxW = nx2 - nx1;
+            float boxH = ny2 - ny1;
+            if (boxW <= 0f || boxH <= 0f) continue;
+
+            Detection mapped = mapToOriginal(nx1, ny1, boxW, boxH, origW, origH, preprocess.scale, preprocess.padX, preprocess.padY);
+            if (mapped == null) continue;
+
+            int classId = Math.max(0, Math.round(clsIdF));
+            detections.add(new Detection(classId, getClassName(classId), score,
+                    mapped.x, mapped.y, mapped.width, mapped.height));
+        }
+
+        detections.sort((a, b) -> Float.compare(b.confidence, a.confidence));
+        return detections;
+    }
+
+    private ByteBuffer preprocessInput(Bitmap bitmap) {
+        int pixelCount = modelInputWidth * modelInputHeight;
+        int[] pixels = new int[pixelCount];
+        bitmap.getPixels(pixels, 0, modelInputWidth, 0, 0, modelInputWidth, modelInputHeight);
+
+        int bytesPerElement = (inputDataType == DataType.FLOAT32) ? 4 : 1;
+        ByteBuffer buffer = ByteBuffer.allocateDirect(pixelCount * 3 * bytesPerElement);
+        buffer.order(ByteOrder.nativeOrder());
+
+        if (inputIsNCHW) {
+            for (int i = 0; i < pixelCount; i++) writeChannel(buffer, (pixels[i] >> 16) & 0xFF);
+            for (int i = 0; i < pixelCount; i++) writeChannel(buffer, (pixels[i] >> 8) & 0xFF);
+            for (int i = 0; i < pixelCount; i++) writeChannel(buffer, pixels[i] & 0xFF);
         } else {
-            inferenceTimeMovingAverageMs = INFERENCE_MOVING_AVERAGE_WEIGHT * currentInferenceTimeMs
-                    + (1.0 - INFERENCE_MOVING_AVERAGE_WEIGHT) * inferenceTimeMovingAverageMs;
-            inferenceFpsMovingAverage = INFERENCE_MOVING_AVERAGE_WEIGHT * currentInferenceFps
-                    + (1.0 - INFERENCE_MOVING_AVERAGE_WEIGHT) * inferenceFpsMovingAverage;
+            for (int i = 0; i < pixelCount; i++) {
+                int px = pixels[i];
+                writeChannel(buffer, (px >> 16) & 0xFF);
+                writeChannel(buffer, (px >> 8) & 0xFF);
+                writeChannel(buffer, px & 0xFF);
+            }
         }
 
-        inferenceTimeSumMs += currentInferenceTimeMs;
-        inferenceFpsSum += currentInferenceFps;
-        inferenceSampleCount++;
+        buffer.rewind();
+        return buffer;
     }
 
-    private String getCOCOClassName(int classId) {
-        if (classId >= 0 && classId < COCO_CLASSES.length) {
-            return COCO_CLASSES[classId];
+    private void writeChannel(ByteBuffer buffer, int value) {
+        if (inputDataType == DataType.FLOAT32) {
+            buffer.putFloat(value / 255.0f);
+        } else if (inputDataType == DataType.UINT8) {
+            buffer.put((byte) value);
+        } else {
+            int q = Math.round((value / 255.0f) / inputQuantScale) + inputQuantZeroPoint;
+            buffer.put((byte) Math.max(-128, Math.min(127, q)));
         }
+    }
+
+    private float[] readOutputToFloat(ByteBuffer buffer) {
+        buffer.rewind();
+        if (outputDataType == DataType.FLOAT32) {
+            int count = buffer.remaining() / 4;
+            float[] result = new float[count];
+            buffer.asFloatBuffer().get(result);
+            return result;
+        }
+
+        int count = buffer.remaining();
+        float[] result = new float[count];
+        for (int i = 0; i < count; i++) {
+            int q = (outputDataType == DataType.UINT8) ? (buffer.get() & 0xFF) : buffer.get();
+            result[i] = (q - outputQuantZeroPoint) * outputQuantScale;
+        }
+        return result;
+    }
+
+    private void loadClassNames(Context context) {
+        classNames.clear();
+        if (labelsPath != null && !labelsPath.trim().isEmpty()) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(context.getAssets().open(labelsPath)))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.trim().isEmpty()) classNames.add(line.trim());
+                }
+            } catch (IOException ignored) { }
+        }
+        if (classNames.isEmpty()) {
+            for (String n : COCO_CLASSES) classNames.add(n);
+        }
+    }
+
+    private String getClassName(int classId) {
+        if (classId >= 0 && classId < classNames.size()) return classNames.get(classId);
+        if (classId >= 0 && classId < COCO_CLASSES.length) return COCO_CLASSES[classId];
         return "class_" + classId;
     }
 
+    public boolean isReady() { return interpreter != null && modelBuffer != null; }
+    public String getInitError() { return initError; }
+    public String getModelPath() { return modelPath; }
+
     /**
-     * Close and release TensorFlow Lite resources
+     * Creates a VisionProcessor that runs YOLO26 O2O detection and renders boxes on the VisionPortal stream.
      */
+    public VisionProcessor createVisionProcessor() {
+        return new YoloVisionProcessor();
+    }
+
+    /**
+     * Returns a snapshot copy of the most recent detections drawn by the VisionProcessor.
+     */
+    public List<Detection> getLastDetectionsSnapshot() {
+        synchronized (lastDetectionsLock) {
+            return new ArrayList<>(lastDetections);
+        }
+    }
+
     public void close() {
         synchronized (inferenceLock) {
             closing = true;
             if (interpreter != null) {
                 interpreter.close();
                 interpreter = null;
-                if (showDebugInfo && telemetry != null) {
-                    telemetry.addData("DetectionYOLO", "Closed");
-                }
             }
-            model = null;
+            modelBuffer = null;
         }
     }
 
-    /**
-     * Load model file from InputStream to temporary file
-     * TensorFlow Lite requires a file path for MappedByteBuffer
-     */
     private MappedByteBuffer loadModelBuffer(Context context) throws IOException {
         try (AssetFileDescriptor afd = context.getAssets().openFd(modelPath);
-             FileInputStream fileInputStream = new FileInputStream(afd.getFileDescriptor());
-             FileChannel fileChannel = fileInputStream.getChannel()) {
-            return fileChannel.map(
-                    FileChannel.MapMode.READ_ONLY,
-                    afd.getStartOffset(),
-                    afd.getDeclaredLength());
+             FileInputStream fis = new FileInputStream(afd.getFileDescriptor());
+             FileChannel ch = fis.getChannel()) {
+            return ch.map(FileChannel.MapMode.READ_ONLY, afd.getStartOffset(), afd.getDeclaredLength());
         } catch (IOException ignored) {
             java.io.File cacheFile = new java.io.File(context.getCacheDir(), modelPath);
-
             if (!cacheFile.exists() || cacheFile.length() == 0) {
                 try (java.io.InputStream is = context.getAssets().open(modelPath);
                      FileOutputStream fos = new FileOutputStream(cacheFile)) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = is.read(buffer)) != -1) {
-                        fos.write(buffer, 0, bytesRead);
-                    }
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
                     fos.flush();
                 }
             }
-
             try (FileInputStream fis = new FileInputStream(cacheFile);
-                 FileChannel fileChannel = fis.getChannel()) {
-                return fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+                 FileChannel ch = fis.getChannel()) {
+                return ch.map(FileChannel.MapMode.READ_ONLY, 0, ch.size());
             }
         }
-    }
-
-    /**
-     * Check if detector is initialized and ready
-     */
-    public boolean isReady() {
-        return interpreter != null && model != null && model.exists();
-    }
-
-    public String getInitError() {
-        return initError;
-    }
-
-    /**
-     * Get input image size
-     */
-    public int getInputSize() {
-        return inputSize;
-    }
-
-    public String getModelPath() {
-        return modelPath;
-    }
-
-    public String getInputLayout() {
-        return inputIsNCHW ? "NCHW" : "NHWC";
-    }
-
-    public int[] getInputTensorShape() {
-        return inputTensorShape;
-    }
-
-    public int[] getOutputTensorShape() {
-        return outputTensorShape;
     }
 
     private boolean ensureTensorFlowLiteNativeLoaded(Context context) {
-        String[] candidateNames = {
-                "tensorflowlite_jni",
-                "tensorflowlite_jni_stable",
-                "tensorflowlite_jni_gms_client"
-        };
-
-        StringBuilder loadErrors = new StringBuilder();
-        for (String name : candidateNames) {
-            try {
-                System.loadLibrary(name);
-                return true;
-            } catch (UnsatisfiedLinkError e) {
-                if (loadErrors.length() > 0) {
-                    loadErrors.append(" | ");
-                }
-                loadErrors.append(name).append(": ").append(e.getMessage());
-            }
+        String[] names = { "tensorflowlite_jni", "tensorflowlite_jni_stable", "tensorflowlite_jni_gms_client" };
+        for (String name : names) {
+            try { System.loadLibrary(name); return true; } catch (UnsatisfiedLinkError ignored) { }
         }
-
-        java.io.File directLib = new java.io.File(
-                context.getApplicationInfo().nativeLibraryDir,
-                "libtensorflowlite_jni.so");
-        if (directLib.exists()) {
-            try {
-                System.load(directLib.getAbsolutePath());
-                return true;
-            } catch (UnsatisfiedLinkError e) {
-                if (loadErrors.length() > 0) {
-                    loadErrors.append(" | ");
-                }
-                loadErrors.append("direct:").append(e.getMessage());
-            }
+        java.io.File direct = new java.io.File(context.getApplicationInfo().nativeLibraryDir, "libtensorflowlite_jni.so");
+        if (direct.exists()) {
+            try { System.load(direct.getAbsolutePath()); return true; } catch (UnsatisfiedLinkError ignored) { }
         }
-
-        initError = "TensorFlow Lite native load failed: " + loadErrors;
+        initError = "Failed to load TFLite native library";
         return false;
+    }
+
+    private float clamp01(float v) {
+        return clampRange(v, 0f, 1f);
+    }
+
+    private float clampRange(float v, float min, float max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    private float round4(float v) {
+        return Math.round(v * 10000f) / 10000f;
+    }
+
+    private class YoloVisionProcessor implements VisionProcessor {
+        private final Paint boxPaint = new Paint();
+        private final Paint textPaint = new Paint();
+        private int frameWidth = 1;
+        private int frameHeight = 1;
+
+        @Override
+        public void init(int width, int height, CameraCalibration calibration) {
+            boxPaint.setColor(Color.GREEN);
+            boxPaint.setStyle(Paint.Style.STROKE);
+            boxPaint.setStrokeWidth(3f);
+            boxPaint.setAntiAlias(true);
+
+            textPaint.setColor(Color.WHITE);
+            textPaint.setTextSize(24f);
+            textPaint.setAntiAlias(true);
+        }
+
+        @Override
+        public Object processFrame(Mat frame, long captureTimeNanos) {
+            if (closing) return null;
+
+            frameWidth = frame.cols();
+            frameHeight = frame.rows();
+
+            Bitmap bmp = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(frame, bmp);
+            List<Detection> detections = detect(bmp);
+            bmp.recycle();
+
+            synchronized (lastDetectionsLock) {
+                lastDetections = detections;
+            }
+            return null;
+        }
+
+        @Override
+        public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight,
+                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity, Object userContext) {
+            List<Detection> snapshot;
+            synchronized (lastDetectionsLock) {
+                snapshot = new ArrayList<>(lastDetections);
+            }
+
+            if (snapshot.isEmpty()) return;
+
+            boxPaint.setStrokeWidth(3f * scaleCanvasDensity);
+            textPaint.setTextSize(20f * scaleCanvasDensity);
+
+            // Letterbox-aware mapping from normalized frame coords to canvas
+            float scale = Math.min(onscreenWidth / (float) frameWidth, onscreenHeight / (float) frameHeight);
+            float padX = (onscreenWidth - frameWidth * scale) / 2f;
+            float padY = (onscreenHeight - frameHeight * scale) / 2f;
+
+            for (Detection d : snapshot) {
+                float left = padX + d.x * frameWidth * scale;
+                float top = padY + d.y * frameHeight * scale;
+                float right = padX + (d.x + d.width) * frameWidth * scale;
+                float bottom = padY + (d.y + d.height) * frameHeight * scale;
+
+                RectF box = new RectF(left, top, right, bottom);
+                canvas.drawRect(box, boxPaint);
+
+                String label = String.format(Locale.US, "%s %.1f%% @ %.4f,%.4f,%.4f,%.4f",
+                        d.className, d.confidence * 100f, d.x, d.y, d.width, d.height);
+                canvas.drawText(label, left + 6f, top + 22f * scaleCanvasDensity, textPaint);
+            }
+        }
     }
 }

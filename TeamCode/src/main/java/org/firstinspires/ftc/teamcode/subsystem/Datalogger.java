@@ -144,10 +144,7 @@ public class Datalogger {
      * Call at the start of each frame to track FPS
      */
     public void startFrame() {
-        if (!initialized) {
-            return;
-        }
-
+        // FPS calculation must be BEFORE any early returns to count ALL frames
         long now = System.nanoTime();
         
         if (previousTimestampNanos > 0) {
@@ -163,6 +160,13 @@ public class Datalogger {
 
         previousTimestampNanos = now;
         frameCount++;
+
+        // Now check for early return AFTER FPS calculation
+        if (!initialized) {
+            return;
+        }
+
+        updateVoltage();
     }
 
     /**

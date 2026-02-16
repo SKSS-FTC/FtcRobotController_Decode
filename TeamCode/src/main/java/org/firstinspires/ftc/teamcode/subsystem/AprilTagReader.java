@@ -101,11 +101,7 @@ public class AprilTagReader {
      */
     public Matrix getTagToCameraMatrix(int tagId) {
         Matrix cameraToTag = getCameraToTagMatrix(tagId);
-        try {
-            return Transformation.computeInverse(cameraToTag);
-        } catch (RuntimeException ignored) {
-            return Transformation.createIdentityMatrix();
-        }
+        return Transformation.computeInverse(cameraToTag);
     }
 
     /**

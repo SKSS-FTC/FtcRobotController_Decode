@@ -55,19 +55,15 @@ public class Transformation {
             return null;
         }
 
-        try {
-            Matrix H_tagToMap = getTagToMapTransform(tagId);
-            Matrix H_baseToCamera = computeInverse(H_SHOOTER_TO_BASE)
-                    .times(computeInverse(H_CAMERA_TO_SHOOTER));
+        Matrix H_tagToMap = getTagToMapTransform(tagId);
+        Matrix H_baseToCamera = computeInverse(H_SHOOTER_TO_BASE)
+                .times(computeInverse(H_CAMERA_TO_SHOOTER));
 
-            Matrix H_baseToMap = H_tagToMap
-                    .times(cameraToTag)
-                    .times(H_baseToCamera);
+        Matrix H_baseToMap = H_tagToMap
+                .times(cameraToTag)
+                .times(H_baseToCamera);
 
-            return extractRotationAndTranslation(H_baseToMap);
-        } catch (RuntimeException ignored) {
-            return null;
-        }
+        return extractRotationAndTranslation(H_baseToMap);
     }
 
     public static RobotPose getRobotPoseInMapFromMultipleTags(List<TagDetection> tagDetections) {
