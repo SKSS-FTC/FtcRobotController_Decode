@@ -9,10 +9,17 @@ import android.graphics.Rect;
 
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.util.Size;
+
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
 
+import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration;
+import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.VisionProcessor;
 import org.opencv.android.Utils;
 import org.opencv.core.Mat;
@@ -30,18 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import java.util.Locale;
-/**
- * YOLO Object Detection Subsystem - YOLO26 One-to-One head only.
- *
- * Supports FP32, FP16, INT8, and UINT8 TFLite models.
- * Expected model format: [x1, y1, x2, y2, confidence, class_id]
- *
- * Basic usage:
- *   DetectionYOLO detector = new DetectionYOLO.Builder().build();
- *   detector.init(context);
- *   List<DetectionYOLO.Detection> results = detector.detect(bitmap);
- *   detector.close();
- */
+
 public class DetectionYOLO {
 
     private static final float DEFAULT_CONFIDENCE_THRESHOLD = 0.25f;
@@ -79,7 +75,7 @@ public class DetectionYOLO {
     private float outputQuantScale = 1.0f;
     private int outputQuantZeroPoint = 0;
 
-    private int numCandidates = 300; // YOLO26 O2O max boxes
+    private int numCandidates = 300;
     private boolean outputBoxesOnLastDim = true;
     private final Object lastDetectionsLock = new Object();
     private List<Detection> lastDetections = new ArrayList<>();
@@ -87,6 +83,11 @@ public class DetectionYOLO {
     private final List<String> classNames = new ArrayList<>();
     private final Object inferenceLock = new Object();
     private volatile boolean closing = false;
+
+    private VisionPortal visionPortal;
+    private int frameWidth = 640;
+    private int frameHeight = 480;
+    private boolean initialized = false;
 
     public static class Detection {
         public final int classId;
@@ -107,16 +108,49 @@ public class DetectionYOLO {
         }
     }
 
+    public static class DetectionResult {
+        public final String tag;
+        public final double confidence;
+        public final double pixelWidth;
+        public final double pixelHeight;
+        public final double normalizedWidth;
+        public final double normalizedHeight;
+        public final double estimatedDistance;
+        public final double x;
+        public final double y;
+
+        public DetectionResult(String tag, double confidence, double pixelWidth, double pixelHeight,
+                               double normalizedWidth, double normalizedHeight, double estimatedDistance,
+                               double x, double y) {
+            this.tag = tag;
+            this.confidence = confidence;
+            this.pixelWidth = pixelWidth;
+            this.pixelHeight = pixelHeight;
+            this.normalizedWidth = normalizedWidth;
+            this.normalizedHeight = normalizedHeight;
+            this.estimatedDistance = estimatedDistance;
+            this.x = x;
+            this.y = y;
+        }
+    }
+
     public static class Builder {
         private String modelPath = "yolo26n.tflite";
         private String labelsPath = null;
         private float confidenceThreshold = DEFAULT_CONFIDENCE_THRESHOLD;
         private int numThreads = 4;
+        private String webcamName = "Webcam 1";
+        private int frameWidth = 640;
+        private int frameHeight = 480;
+        private boolean useBuiltinCamera = false;
 
         public Builder modelPath(String modelPath) { this.modelPath = modelPath; return this; }
         public Builder labelsPath(String labelsPath) { this.labelsPath = labelsPath; return this; }
         public Builder numThreads(int numThreads) { this.numThreads = numThreads; return this; }
         public Builder confidenceThreshold(float t) { this.confidenceThreshold = t; return this; }
+        public Builder webcamName(String name) { this.webcamName = name; return this; }
+        public Builder frameSize(int width, int height) { this.frameWidth = width; this.frameHeight = height; return this; }
+        public Builder useBuiltinCamera(boolean use) { this.useBuiltinCamera = use; return this; }
 
         public DetectionYOLO build() { return new DetectionYOLO(this); }
     }
@@ -126,9 +160,15 @@ public class DetectionYOLO {
         this.labelsPath = b.labelsPath;
         this.confidenceThreshold = b.confidenceThreshold;
         this.numThreads = b.numThreads;
+        this.frameWidth = b.frameWidth;
+        this.frameHeight = b.frameHeight;
     }
 
     public void init(Context context) {
+        init(context, null);
+    }
+
+    public void init(Context context, HardwareMap hardwareMap) {
         initError = null;
         closing = false;
 
@@ -141,7 +181,6 @@ public class DetectionYOLO {
             options.setNumThreads(numThreads);
             interpreter = new Interpreter(modelBuffer, options);
 
-            // Read input tensor metadata
             org.tensorflow.lite.Tensor inTensor = interpreter.getInputTensor(0);
             int[] inputShape = inTensor.shape();
             inputDataType = inTensor.dataType();
@@ -164,7 +203,6 @@ public class DetectionYOLO {
                 }
             }
 
-            // Read output tensor metadata - YOLO26 O2O format: [1, N, 6] or [1, 6, N]
             org.tensorflow.lite.Tensor outTensor = interpreter.getOutputTensor(0);
             int[] outputShape = outTensor.shape();
             outputDataType = outTensor.dataType();
@@ -187,6 +225,10 @@ public class DetectionYOLO {
 
             loadClassNames(context);
 
+            if (hardwareMap != null) {
+                initVisionPortal(hardwareMap);
+            }
+
         } catch (IOException e) {
             initError = "Failed to load model: " + e.getMessage();
             interpreter = null;
@@ -198,22 +240,154 @@ public class DetectionYOLO {
         }
     }
 
+    private void initVisionPortal(HardwareMap hardwareMap) {
+        VisionPortal.Builder portalBuilder = new VisionPortal.Builder();
+
+        boolean useBuiltin = false;
+        WebcamName webcam = null;
+        try {
+            webcam = hardwareMap.get(WebcamName.class, "Webcam 1");
+        } catch (Exception ignored) {
+            List<WebcamName> webcams = hardwareMap.getAll(WebcamName.class);
+            if (!webcams.isEmpty()) {
+                webcam = webcams.get(0);
+            }
+        }
+
+        if (webcam != null) {
+            portalBuilder.setCamera(webcam);
+        } else {
+            portalBuilder.setCamera(BuiltinCameraDirection.BACK);
+        }
+
+        portalBuilder.setCameraResolution(new Size(frameWidth, frameHeight));
+        portalBuilder.addProcessor(createVisionProcessor());
+
+        visionPortal = portalBuilder.build();
+        initialized = true;
+    }
+
+    public boolean isInitialized() {
+        return initialized && isReady();
+    }
+
+    public List<DetectionResult> getDetectionResults() {
+        List<DetectionResult> results = new ArrayList<>();
+
+        if (!isInitialized()) {
+            return results;
+        }
+
+        List<Detection> detections = getLastDetectionsSnapshot();
+
+        for (Detection d : detections) {
+            double pixelWidth = d.width * frameWidth;
+            double pixelHeight = d.height * frameHeight;
+            double distance = calculateDistance(pixelWidth);
+
+            results.add(new DetectionResult(
+                    d.className,
+                    d.confidence,
+                    pixelWidth,
+                    pixelHeight,
+                    d.width,
+                    d.height,
+                    distance,
+                    d.x,
+                    d.y
+            ));
+        }
+
+        return results;
+    }
+
+    public DetectionResult getBestDetectionResult() {
+        List<DetectionResult> detections = getDetectionResults();
+        if (detections.isEmpty()) {
+            return null;
+        }
+
+        DetectionResult best = detections.get(0);
+        for (DetectionResult d : detections) {
+            if (d.confidence > best.confidence) {
+                best = d;
+            }
+        }
+        return best;
+    }
+
+    public DetectionResult getDetectionResultByTag(String tag) {
+        List<DetectionResult> detections = getDetectionResults();
+        for (DetectionResult d : detections) {
+            if (d.tag.equalsIgnoreCase(tag)) {
+                return d;
+            }
+        }
+        return null;
+    }
+
+    public List<DetectionResult> getDetectionResultsByTag(String tag) {
+        List<DetectionResult> results = new ArrayList<>();
+        List<DetectionResult> detections = getDetectionResults();
+        for (DetectionResult d : detections) {
+            if (d.tag.equalsIgnoreCase(tag)) {
+                results.add(d);
+            }
+        }
+        return results;
+    }
+
+    public double calculateDistance(double pixelWidth) {
+        if (pixelWidth <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return (Constants.KNOWN_OBJECT_WIDTH * Constants.CAMERA_FOCAL_LENGTH) / pixelWidth;
+    }
+
+    public double calculateFocalLength(double actualDistance, double pixelWidth) {
+        if (pixelWidth <= 0 || actualDistance <= 0) {
+            return 0;
+        }
+        return (actualDistance * pixelWidth) / Constants.KNOWN_OBJECT_WIDTH;
+    }
+
+    public String getDetectionInfo(DetectionResult result) {
+        if (result == null) {
+            return "No detection";
+        }
+        return String.format(Locale.US, "%s: %.1f%% | dist=%.2fm | px=%.0fx%.0f",
+                result.tag,
+                result.confidence * 100,
+                result.estimatedDistance,
+                result.pixelWidth,
+                result.pixelHeight);
+    }
+
+    public int getFrameWidth() {
+        return frameWidth;
+    }
+
+    public int getFrameHeight() {
+        return frameHeight;
+    }
+
+    public VisionPortal getVisionPortal() {
+        return visionPortal;
+    }
+
     public List<Detection> detect(Bitmap bitmap) {
         if (closing || interpreter == null) {
             return new ArrayList<>();
         }
 
-        // Preprocess
         PreprocessResult preprocess = createLetterboxedInput(bitmap);
         Bitmap inputBitmap = preprocess.inputBitmap;
         ByteBuffer inputBuffer = preprocessInput(inputBitmap);
 
-        // Allocate output buffer
         org.tensorflow.lite.Tensor outTensor = interpreter.getOutputTensor(0);
         ByteBuffer outputBuffer = ByteBuffer.allocateDirect(outTensor.numBytes());
         outputBuffer.order(ByteOrder.nativeOrder());
 
-        // Run inference
         try {
             synchronized (inferenceLock) {
                 if (closing || interpreter == null) {
@@ -227,7 +401,6 @@ public class DetectionYOLO {
             return new ArrayList<>();
         }
 
-        // Parse output
         outputBuffer.rewind();
         float[] output = readOutputToFloat(outputBuffer);
 
@@ -308,7 +481,7 @@ public class DetectionYOLO {
         for (int i = 0; i < maxBoxes; i++) {
             float x1, y1, x2, y2, score, clsIdF;
 
-            if (outputBoxesOnLastDim) { // [1, num_boxes, 6]
+            if (outputBoxesOnLastDim) {
                 int base = i * stride;
                 x1 = output[base];
                 y1 = output[base + 1];
@@ -316,7 +489,7 @@ public class DetectionYOLO {
                 y2 = output[base + 3];
                 score = output[base + 4];
                 clsIdF = output[base + 5];
-            } else { // [1, 6, num_boxes]
+            } else {
                 x1 = output[0 * numCandidates + i];
                 y1 = output[1 * numCandidates + i];
                 x2 = output[2 * numCandidates + i];
@@ -327,7 +500,6 @@ public class DetectionYOLO {
 
             if (score < confidenceThreshold) continue;
 
-            // Coordinates may be normalized [0,1] or absolute [0, modelInput]; normalize if needed
             float maxCoord = Math.max(Math.max(Math.abs(x1), Math.abs(y1)), Math.max(Math.abs(x2), Math.abs(y2)));
             if (maxCoord > 1.5f) {
                 x1 /= modelInputWidth;
@@ -438,16 +610,10 @@ public class DetectionYOLO {
     public String getInitError() { return initError; }
     public String getModelPath() { return modelPath; }
 
-    /**
-     * Creates a VisionProcessor that runs YOLO26 O2O detection and renders boxes on the VisionPortal stream.
-     */
     public VisionProcessor createVisionProcessor() {
         return new YoloVisionProcessor();
     }
 
-    /**
-     * Returns a snapshot copy of the most recent detections drawn by the VisionProcessor.
-     */
     public List<Detection> getLastDetectionsSnapshot() {
         synchronized (lastDetectionsLock) {
             return new ArrayList<>(lastDetections);
@@ -463,6 +629,11 @@ public class DetectionYOLO {
             }
             modelBuffer = null;
         }
+        if (visionPortal != null) {
+            visionPortal.close();
+            visionPortal = null;
+        }
+        initialized = false;
     }
 
     private MappedByteBuffer loadModelBuffer(Context context) throws IOException {
@@ -516,8 +687,8 @@ public class DetectionYOLO {
     private class YoloVisionProcessor implements VisionProcessor {
         private final Paint boxPaint = new Paint();
         private final Paint textPaint = new Paint();
-        private int frameWidth = 1;
-        private int frameHeight = 1;
+        private int processorFrameWidth = 1;
+        private int processorFrameHeight = 1;
 
         @Override
         public void init(int width, int height, CameraCalibration calibration) {
@@ -535,8 +706,8 @@ public class DetectionYOLO {
         public Object processFrame(Mat frame, long captureTimeNanos) {
             if (closing) return null;
 
-            frameWidth = frame.cols();
-            frameHeight = frame.rows();
+            processorFrameWidth = frame.cols();
+            processorFrameHeight = frame.rows();
 
             Bitmap bmp = Bitmap.createBitmap(frame.cols(), frame.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(frame, bmp);
@@ -562,16 +733,15 @@ public class DetectionYOLO {
             boxPaint.setStrokeWidth(3f * scaleCanvasDensity);
             textPaint.setTextSize(20f * scaleCanvasDensity);
 
-            // Letterbox-aware mapping from normalized frame coords to canvas
-            float scale = Math.min(onscreenWidth / (float) frameWidth, onscreenHeight / (float) frameHeight);
-            float padX = (onscreenWidth - frameWidth * scale) / 2f;
-            float padY = (onscreenHeight - frameHeight * scale) / 2f;
+            float scale = Math.min(onscreenWidth / (float) processorFrameWidth, onscreenHeight / (float) processorFrameHeight);
+            float padX = (onscreenWidth - processorFrameWidth * scale) / 2f;
+            float padY = (onscreenHeight - processorFrameHeight * scale) / 2f;
 
             for (Detection d : snapshot) {
-                float left = padX + d.x * frameWidth * scale;
-                float top = padY + d.y * frameHeight * scale;
-                float right = padX + (d.x + d.width) * frameWidth * scale;
-                float bottom = padY + (d.y + d.height) * frameHeight * scale;
+                float left = padX + d.x * processorFrameWidth * scale;
+                float top = padY + d.y * processorFrameHeight * scale;
+                float right = padX + (d.x + d.width) * processorFrameWidth * scale;
+                float bottom = padY + (d.y + d.height) * processorFrameHeight * scale;
 
                 RectF box = new RectF(left, top, right, bottom);
                 canvas.drawRect(box, boxPaint);

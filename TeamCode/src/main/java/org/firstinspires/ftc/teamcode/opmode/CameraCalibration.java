@@ -3,31 +3,30 @@ package org.firstinspires.ftc.teamcode.opmode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.subprogram.ObjectDetection;
+import org.firstinspires.ftc.teamcode.subsystem.DetectionYOLO;
 import org.firstinspires.ftc.teamcode.subsystem.Constants;
 
 import java.util.List;
-import java.util.Locale;
 
 @TeleOp(name = "Camera Calibration", group = "Tests")
 public class CameraCalibration extends LinearOpMode {
-    private ObjectDetection objectDetection;
+    private DetectionYOLO detector;
 
     @Override
     public void runOpMode() throws InterruptedException {
         telemetry.addData("Status", "Initializing camera...");
         telemetry.update();
 
-        objectDetection = new ObjectDetection.Builder()
+        detector = new DetectionYOLO.Builder()
                 .modelPath("yolo26n_int8.tflite")
                 .frameSize(640, 480)
                 .confidenceThreshold(0.25f)
                 .build();
 
-        objectDetection.init(hardwareMap.appContext, hardwareMap);
+        detector.init(hardwareMap.appContext, hardwareMap);
 
-        if (!objectDetection.isInitialized()) {
-            telemetry.addData("ERROR", objectDetection.getInitError());
+        if (!detector.isInitialized()) {
+            telemetry.addData("ERROR", detector.getInitError());
             telemetry.update();
             sleep(3000);
             return;
@@ -43,11 +42,10 @@ public class CameraCalibration extends LinearOpMode {
 
         waitForStart();
 
-        boolean calculated = false;
         double calculatedFocalLength = 0;
 
         while (opModeIsActive() && !isStopRequested()) {
-            List<ObjectDetection.DetectionResult> detections = objectDetection.getDetections();
+            List<DetectionYOLO.DetectionResult> detections = detector.getDetectionResults();
 
             telemetry.addData("Actual Distance (Dashboard)", "%.2f m", Constants.CALIBRATION_ACTUAL_DISTANCE);
             telemetry.addData("Current Focal Length", "%.1f px", Constants.CAMERA_FOCAL_LENGTH);
@@ -56,7 +54,7 @@ public class CameraCalibration extends LinearOpMode {
             telemetry.addLine();
 
             if (!detections.isEmpty()) {
-                ObjectDetection.DetectionResult best = detections.get(0);
+                DetectionYOLO.DetectionResult best = detections.get(0);
 
                 telemetry.addData("Detected Object", best.tag);
                 telemetry.addData("Confidence", "%.1f%%", best.confidence * 100);
@@ -65,16 +63,14 @@ public class CameraCalibration extends LinearOpMode {
                 telemetry.addLine();
 
                 if (Constants.CALIBRATION_ACTUAL_DISTANCE > 0) {
-                    calculatedFocalLength = objectDetection.calculateFocalLength(
+                    calculatedFocalLength = detector.calculateFocalLength(
                             Constants.CALIBRATION_ACTUAL_DISTANCE,
                             best.pixelWidth
                     );
-                    calculated = true;
 
                     telemetry.addData("Calculated Focal Length", "%.1f px", calculatedFocalLength);
                     telemetry.addLine();
                     telemetry.addData("ACTION", "Press CROSS to save focal length");
-                    telemetry.addData("         ", "Press CIRCLE to re-measure");
 
                     if (gamepad1.cross) {
                         Constants.CAMERA_FOCAL_LENGTH = calculatedFocalLength;
@@ -86,15 +82,14 @@ public class CameraCalibration extends LinearOpMode {
                 }
             } else {
                 telemetry.addData("No detections", "Point camera at object");
-                calculated = false;
             }
 
             telemetry.addLine();
             telemetry.addData("Press TRIANGLE", "To test current focal length");
 
             if (gamepad1.triangle && !detections.isEmpty()) {
-                ObjectDetection.DetectionResult best = detections.get(0);
-                double estimatedDist = objectDetection.calculateDistance(best.pixelWidth);
+                DetectionYOLO.DetectionResult best = detections.get(0);
+                double estimatedDist = detector.calculateDistance(best.pixelWidth);
                 telemetry.addLine();
                 telemetry.addData("Distance Test", "");
                 telemetry.addData("  Estimated Distance", "%.2f m", estimatedDist);
@@ -110,6 +105,6 @@ public class CameraCalibration extends LinearOpMode {
             sleep(100);
         }
 
-        objectDetection.close();
+        detector.close();
     }
 }

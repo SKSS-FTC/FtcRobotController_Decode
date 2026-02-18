@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode.opmode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.subprogram.ObjectDetection;
+import org.firstinspires.ftc.teamcode.subsystem.DetectionYOLO;
 import org.firstinspires.ftc.teamcode.subsystem.Constants;
 
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.Locale;
 
 @TeleOp(name = "Detection Test", group = "Tests")
 public class DetectionTest extends LinearOpMode {
-    private ObjectDetection objectDetection;
+    private DetectionYOLO detector;
     private String filterTag = null;
     private boolean showAll = true;
 
@@ -20,17 +20,17 @@ public class DetectionTest extends LinearOpMode {
         telemetry.addData("Status", "Initializing detection system...");
         telemetry.update();
 
-        objectDetection = new ObjectDetection.Builder()
+        detector = new DetectionYOLO.Builder()
                 .modelPath("yolo26n_int8.tflite")
                 .frameSize(640, 480)
                 .confidenceThreshold(0.25f)
                 .numThreads(4)
                 .build();
 
-        objectDetection.init(hardwareMap.appContext, hardwareMap);
+        detector.init(hardwareMap.appContext, hardwareMap);
 
-        if (!objectDetection.isInitialized()) {
-            telemetry.addData("ERROR", objectDetection.getInitError());
+        if (!detector.isInitialized()) {
+            telemetry.addData("ERROR", detector.getInitError());
             telemetry.update();
             sleep(3000);
             return;
@@ -51,11 +51,11 @@ public class DetectionTest extends LinearOpMode {
         while (opModeIsActive() && !isStopRequested()) {
             testControls();
 
-            List<ObjectDetection.DetectionResult> detections;
+            List<DetectionYOLO.DetectionResult> detections;
             if (filterTag != null && !showAll) {
-                detections = objectDetection.getDetectionsByTag(filterTag);
+                detections = detector.getDetectionResultsByTag(filterTag);
             } else {
-                detections = objectDetection.getDetections();
+                detections = detector.getDetectionResults();
             }
 
             telemetry.addData("Status", "Detection Test Running");
@@ -67,14 +67,14 @@ public class DetectionTest extends LinearOpMode {
             if (detections.isEmpty()) {
                 telemetry.addData("No objects detected", "Point camera at objects");
             } else {
-                ObjectDetection.DetectionResult best = objectDetection.getBestDetection();
-                telemetry.addData("Best Detection", objectDetection.getDetectionInfo(best));
+                DetectionYOLO.DetectionResult best = detector.getBestDetectionResult();
+                telemetry.addData("Best Detection", detector.getDetectionInfo(best));
                 telemetry.addLine();
                 telemetry.addData("All Detections:", "");
 
                 int count = Math.min(5, detections.size());
                 for (int i = 0; i < count; i++) {
-                    ObjectDetection.DetectionResult d = detections.get(i);
+                    DetectionYOLO.DetectionResult d = detections.get(i);
                     telemetry.addData(
                             String.format(Locale.US, "  [%d] %s", i + 1, d.tag),
                             "%.1f%% | %.2fm | %.0fx%.0fpx",
@@ -119,7 +119,7 @@ public class DetectionTest extends LinearOpMode {
             sleep(50);
         }
 
-        objectDetection.close();
+        detector.close();
     }
 
     private void testControls() {
@@ -129,7 +129,7 @@ public class DetectionTest extends LinearOpMode {
         }
 
         if (gamepad1.circle) {
-            ObjectDetection.DetectionResult best = objectDetection.getBestDetection();
+            DetectionYOLO.DetectionResult best = detector.getBestDetectionResult();
             if (best != null) {
                 filterTag = best.tag;
                 showAll = false;
