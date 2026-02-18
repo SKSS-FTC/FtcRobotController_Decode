@@ -137,4 +137,11 @@ public class Constants {
     public static boolean SHOOTER_PID = true;
     public static double shooterTargetAngularVelocity = 10;
     public static double shooterMinCheckSecond = 0.05;
+
+    // ============================================
+    // Camera Calibration Constants
+    // ============================================
+    public static double CAMERA_FOCAL_LENGTH = 500.0;
+    public static double CALIBRATION_ACTUAL_DISTANCE = 0.0;
+    public static double KNOWN_OBJECT_WIDTH = 0.1524;
 }
