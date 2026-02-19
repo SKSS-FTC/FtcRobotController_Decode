@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamcode.examples;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -46,14 +46,14 @@ public class imuFieldOrientedDrive extends LinearOpMode {
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shoot.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        telemetry.addData("Status", "Initialized");
+        telemetry.addData("Status", "Initialized new version");
         telemetry.update(); // Display the "Initialized`" message
         shoot.setDirection(DcMotorSimple.Direction.FORWARD);
         intake.setDirection(DcMotorSimple.Direction.FORWARD);
         rightDown.setDirection(DcMotorSimple.Direction.FORWARD);
         rightUp.setDirection(DcMotorSimple.Direction.FORWARD);
         leftDown.setDirection(DcMotorSimple.Direction.REVERSE);
-        leftUp.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftUp.setDirection(DcMotorSimple.Direction.REVERSE);
 
         waitForStart();
         imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP)));
@@ -85,12 +85,12 @@ public class imuFieldOrientedDrive extends LinearOpMode {
             if (currentHeading < 0) {
                 currentHeading += 360;
             }
-            relativeTargetAngle = currentHeading - getStickAngle(gamepad1.left_stick_x, gamepad1.left_stick_y);
+            relativeTargetAngle = getStickAngle(gamepad1.left_stick_x, -1 * gamepad1.left_stick_y) - currentHeading;
             joystickMagnitude = Math.sqrt(Math.pow(gamepad1.left_stick_x, 2) + Math.pow(gamepad1.left_stick_y, 2));
 
             if (fieldDrive) {
                 outputX = joystickMagnitude * Math.sin(relativeTargetAngle / 180 * Math.PI);
-                outputY = joystickMagnitude * Math.cos(relativeTargetAngle / 180 * Math.PI);
+                outputY = -1 * joystickMagnitude * Math.cos(relativeTargetAngle / 180 * Math.PI);
                 outputR = gamepad1.right_stick_x;
             } else {
                 outputX = gamepad1.left_stick_x;
@@ -105,6 +105,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
             rightUp.setPower(0.4 * (-outputX - outputY - outputR));
             leftDown.setPower(0.4 * (outputX + outputY - outputR));
             rightDown.setPower(0.4 * (outputX - outputY - outputR));
+
             telemetry.addData("output x", outputX);
             telemetry.addData("output y", outputY);
             telemetry.addData("output r", outputR);
@@ -112,8 +113,8 @@ public class imuFieldOrientedDrive extends LinearOpMode {
             telemetry.addData("shoot", shootR);
             telemetry.addData("magnitude", joystickMagnitude);
             telemetry.addData("stick x", gamepad1.left_stick_x);
-            telemetry.addData("stick y", -1 *gamepad1.left_stick_y);
-            telemetry.addData("stick angle", getStickAngle( gamepad1.left_stick_x, -1 *gamepad1.left_stick_y));
+            telemetry.addData("stick y", gamepad1.left_stick_y);
+            telemetry.addData("stick angle", getStickAngle( gamepad1.left_stick_x, -1 * gamepad1.left_stick_y));
             telemetry.addData("yaw", orientation.getYaw(AngleUnit.DEGREES));
             telemetry.update();
         }
