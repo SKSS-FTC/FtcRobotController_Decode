@@ -127,17 +127,19 @@ public class Shooter {
     private void setShooterPower(double distance) {
         double currentTime = timer.milliseconds();
         double deltaTime = (currentTime - lastPowerUpdateTime) / 1000.0;
+        double targetAngularVelocity = shooterTargetAngularVelocity;
 
         if (deltaTime > shooterMinCheckSecond) {
-            double currentAngularVelocity = shooter.getVelocity();
-            double output;
+            double currentAngularVelocity = shooter.getVelocity() / TICKS_PER_REVOLUTION * 2 * Math.PI;
+            double algorithmOutput;
             if (SHOOTER_PID) {
-                output = getShooterPIDFPower(shooterTargetAngularVelocity, currentAngularVelocity);
+                algorithmOutput = getShooterPIDFPower(targetAngularVelocity, currentAngularVelocity);
             } else {
-                output = getShooterSMCPower(shooterTargetAngularVelocity, currentAngularVelocity);
+                algorithmOutput = getShooterSMCPower(targetAngularVelocity, currentAngularVelocity);
             }
-            output += shooterTargetAngularVelocity /2 /Math.PI * 28;
-            shooter.setVelocity(output);
+            double targetTicksPerSecond = targetAngularVelocity / (2 * Math.PI) * TICKS_PER_REVOLUTION;
+            double algorithmCorrectionTicks = algorithmOutput / (2 * Math.PI) * TICKS_PER_REVOLUTION;
+            shooter.setVelocity(targetTicksPerSecond + algorithmCorrectionTicks);
             lastPowerUpdateTime = currentTime;
         }
     }
@@ -152,15 +154,13 @@ public class Shooter {
         pidIntegral += error;
         double derivative = error - pidLastError;
         pidLastError = error;
-        double output = SHOOTER_PID_KP * error + SHOOTER_PID_KI * pidIntegral + SHOOTER_PID_KD * derivative;
-        return Math.max(-1.0, Math.min(1.0, output));
+        return SHOOTER_PID_KP * error + SHOOTER_PID_KI * pidIntegral + SHOOTER_PID_KD * derivative;
     }
 
     private double getShooterSMCPower(double targetAngularVelocity, double currentAngularVelocity) {
         double error = targetAngularVelocity - currentAngularVelocity;
         double slidingSurface = error + SHOOTER_SMC_LAMBDA * error;
-        double output = SHOOTER_SMC_ETA * Math.signum(slidingSurface);
-        return Math.max(-1.0, Math.min(1.0, output));
+        return SHOOTER_SMC_ETA * Math.signum(slidingSurface);
     }
 
     public double getAngularVelocity() {
@@ -177,5 +177,8 @@ public class Shooter {
         }
         return lastAngularVelocity;
     }
-    public double getShootVelocity{return (shooter.getVelocity() /2 /Math.PI *28);}
+
+    public double getShootVelocity() {
+        return shooter.getVelocity() / TICKS_PER_REVOLUTION * 2 * Math.PI;
+    }
 }
