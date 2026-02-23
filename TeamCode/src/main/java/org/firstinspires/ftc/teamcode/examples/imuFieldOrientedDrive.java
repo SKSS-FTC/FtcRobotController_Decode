@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -66,7 +67,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
                 shoot.setPower(0);
             }
             if (gamepad1.right_trigger > 0.7) {
-                intake.setPower(1);
+                intake.setPower(-1);
             } else {
                 intake.setPower(0);
             }

@@ -145,4 +145,10 @@ public class Constants {
     public static double CAMERA_FOCAL_LENGTH = 500.0;
     public static double CALIBRATION_ACTUAL_DISTANCE = 0.0;
     public static double KNOWN_OBJECT_WIDTH = 0.1524;
+    public static int sliderDriveEncoderValue = 100;
+    public static int sliderParkEncoderValue = 100;
+    public static double leftSliderServoClose = 0;
+    public static double rightSliderServoClose = 0;
+    public static double leftSliderServoOpen = 1;
+    public static double rightSliderServoOpen = 1;
 }

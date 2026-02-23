@@ -6,7 +6,7 @@ import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.subsystem.shooter.Shooter;
+import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 
 @TeleOp(name = "ShooterAlgorithmTest1", group = "Tests")
 public class shooterAlgorithmTest1 extends LinearOpMode {

@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.subsystem.shooter;
+package org.firstinspires.ftc.teamcode.subsystem;
 
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.BLUE_SHOOTING_TARGET_POSITION_MAP;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.RED_SHOOTING_TARGET_POSITION_MAP;
