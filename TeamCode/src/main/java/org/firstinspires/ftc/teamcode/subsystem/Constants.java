@@ -134,7 +134,7 @@ public class Constants {
     public static double SHOOTER_PID_KI = 0.0;
     public static double SHOOTER_PID_KD = 0.00001;
     public static double SHOOTER_SMC_LAMBDA = 0.001;//0.000000001
-    public static double SHOOTER_SMC_ETA = 0.0001;//0.0001
+    public static double SHOOTER_SMC_ETA = 0.01;//0.0001
     public static boolean SHOOTER_PID = true;
     public static double shooterTargetAngularVelocity = 10;
     public static double shooterMinCheckSecond = 0.05;
