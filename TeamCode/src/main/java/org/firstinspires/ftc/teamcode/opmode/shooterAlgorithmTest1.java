@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 public class shooterAlgorithmTest1 extends LinearOpMode {
     private Shooter shooter;
     private TelemetryManager telemetryM;
+    private boolean wasLogging = false;
 
     @Override
     public void runOpMode() {
@@ -19,6 +20,7 @@ public class shooterAlgorithmTest1 extends LinearOpMode {
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
 
         telemetry.addLine("Status: Initialized");
+        telemetry.addLine("Press CIRCLE to start/stop logging");
         telemetry.update();
 
         waitForStart();
@@ -36,13 +38,26 @@ public class shooterAlgorithmTest1 extends LinearOpMode {
             if (gamepad1.dpad_right) {
                 shooter.setAlliance(Shooter.Alliance.RED);
             }
+
+            if (gamepad1.circle && !shooter.isLogging()) {
+                shooter.startLogging();
+                wasLogging = true;
+            } else if (!gamepad1.circle && shooter.isLogging() && wasLogging) {
+                shooter.stopLoggingAndSave();
+                wasLogging = false;
+            }
+
             shooter.update(new Pose(0, 0), 120);
 
             telemetryM.debug("Shooter Aiming: " + shooter.shooterAiming);
             telemetryM.debug("Alliance: " + shooter.getAlliance().toString());
             telemetryM.debug("Angular Velocity (rad/s): " + shooter.getAngularVelocity());
-            telemetryM.debug("shoot Velocity (rad/s): " + shooter.getShootVelocity());
-            telemetryM.debug("shooter reading - cal " + (shooter.getShootVelocity() - shooter.getAngularVelocity()));
+            telemetryM.debug("Shoot Velocity (rad/s): " + shooter.getShootVelocity());
+            telemetryM.debug("Shooter reading - cal " + (shooter.getShootVelocity() - shooter.getAngularVelocity()));
+            telemetryM.debug("Logging: " + (shooter.isLogging() ? "YES (" + shooter.getDataPointCount() + " pts)" : "NO"));
+            if (!shooter.isLogging() && shooter.getLastLogFilePath() != null) {
+                telemetryM.debug("Last Log: " + shooter.getLastLogFilePath());
+            }
             telemetryM.update(telemetry);
         }
     }

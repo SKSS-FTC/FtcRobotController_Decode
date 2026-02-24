@@ -12,6 +12,8 @@ import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterMinCheck
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterTargetAngularVelocity;
 import static org.firstinspires.ftc.teamcode.subsystem.RobotState.shooterEncoder;
 
+import android.content.Context;
+
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -19,6 +21,13 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import Jama.Matrix;
 
@@ -46,7 +55,27 @@ public class Shooter {
     private double lastAngularVelocity = 0.0;
     private ElapsedTime timer;
 
+    private boolean isLogging = false;
+    private List<DataPoint> dataPoints = new ArrayList<>();
+    private HardwareMap hardwareMap;
+    private double logStartTime = 0.0;
+
+    private static class DataPoint {
+        final double time;
+        final double targetAngularVelocity;
+        final double currentAngularVelocity;
+        final double error;
+
+        DataPoint(double time, double targetAngularVelocity, double currentAngularVelocity, double error) {
+            this.time = time;
+            this.targetAngularVelocity = targetAngularVelocity;
+            this.currentAngularVelocity = currentAngularVelocity;
+            this.error = error;
+        }
+    }
+
     public Shooter(HardwareMap hardwareMap, Alliance alliance) {
+        this.hardwareMap = hardwareMap;
         this.alliance = alliance;
 
         rotate = hardwareMap.get(DcMotorEx.class, "rotate");
@@ -131,6 +160,13 @@ public class Shooter {
 
         if (deltaTime > shooterMinCheckSecond) {
             double currentAngularVelocity = shooter.getVelocity() / TICKS_PER_REVOLUTION * 2 * Math.PI;
+            double error = targetAngularVelocity - currentAngularVelocity;
+
+            if (isLogging) {
+                double logTime = (currentTime - logStartTime) / 1000.0;
+                dataPoints.add(new DataPoint(logTime, targetAngularVelocity, currentAngularVelocity, error));
+            }
+
             double algorithmOutput;
             if (SHOOTER_PID) {
                 algorithmOutput = getShooterPIDFPower(targetAngularVelocity, currentAngularVelocity);
@@ -161,6 +197,77 @@ public class Shooter {
         double error = targetAngularVelocity - currentAngularVelocity;
         double slidingSurface = error + SHOOTER_SMC_LAMBDA * error;
         return SHOOTER_SMC_ETA * Math.signum(slidingSurface);
+    }
+
+    public void startLogging() {
+        if (!isLogging) {
+            dataPoints.clear();
+            isLogging = true;
+            logStartTime = timer.milliseconds();
+        }
+    }
+
+    public void stopLoggingAndSave() {
+        if (isLogging) {
+            isLogging = false;
+            saveToCSV();
+        }
+    }
+
+    public boolean isLogging() {
+        return isLogging;
+    }
+
+    public int getDataPointCount() {
+        return dataPoints.size();
+    }
+
+    private void saveToCSV() {
+        if (dataPoints.isEmpty()) {
+            return;
+        }
+
+        try {
+            Context context = hardwareMap.appContext;
+            File logDir = new File(context.getFilesDir(), "shooter_logs");
+            if (!logDir.exists()) {
+                logDir.mkdirs();
+            }
+
+            String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new java.util.Date());
+            File csvFile = new File(logDir, "shooter_data_" + timestamp + ".csv");
+
+            BufferedWriter writer = new BufferedWriter(new FileWriter(csvFile));
+            writer.write("time,target_angular_velocity,current_angular_velocity,error");
+            writer.newLine();
+
+            for (DataPoint dp : dataPoints) {
+                writer.write(String.format(Locale.US, "%.4f,%.4f,%.4f,%.4f",
+                        dp.time, dp.targetAngularVelocity, dp.currentAngularVelocity, dp.error));
+                writer.newLine();
+            }
+
+            writer.flush();
+            writer.close();
+
+            System.out.println("Shooter data saved to: " + csvFile.getAbsolutePath());
+
+        } catch (Exception e) {
+            System.err.println("Failed to save shooter data: " + e.getMessage());
+        }
+    }
+
+    public String getLastLogFilePath() {
+        Context context = hardwareMap.appContext;
+        File logDir = new File(context.getFilesDir(), "shooter_logs");
+        if (logDir.exists() && logDir.listFiles() != null && logDir.listFiles().length > 0) {
+            File[] files = logDir.listFiles();
+            if (files != null && files.length > 0) {
+                java.util.Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+                return files[0].getAbsolutePath();
+            }
+        }
+        return null;
     }
 
     public double getAngularVelocity() {
