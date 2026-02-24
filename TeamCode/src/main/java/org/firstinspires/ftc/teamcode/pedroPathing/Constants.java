@@ -27,7 +27,7 @@ public class Constants {
         return new FollowerBuilder(followerConstants, hardwareMap)
                 .pathConstraints(pathConstraints)
                 .mecanumDrivetrain(driveConstants)
-                .threeWheelIMULocalizer(localizerConstants)
+                .threeWheelLocalizer(localizerConstants)
                 .build();
     }
 
@@ -39,22 +39,22 @@ public class Constants {
             .leftFrontMotorName("leftUp")
             .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
+            .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD);
-    public static ThreeWheelIMUConstants localizerConstants = new ThreeWheelIMUConstants()
-            .forwardTicksToInches(0.0742044572624506)
-            .strafeTicksToInches(1)
-            .turnTicksToInches(1)
+    public static ThreeWheelConstants localizerConstants = new ThreeWheelConstants()
+            .forwardTicksToInches(0.00296532542902055)
+            .strafeTicksToInches(0.0031733746960547833)
+            .turnTicksToInches(0.003152802618455413)
             .leftPodY(2.25)
             .rightPodY(-2.25)
             .strafePodX(-6.25)
             .leftEncoder_HardwareMapName("leftUp")
-            .rightEncoder_HardwareMapName("leftDown")
-            .strafeEncoder_HardwareMapName("rightUp")
+            .rightEncoder_HardwareMapName("rightUp")
+            .strafeEncoder_HardwareMapName("leftDown")
             .leftEncoderDirection(Encoder.REVERSE)
             .rightEncoderDirection(Encoder.FORWARD)
-            .strafeEncoderDirection(Encoder.REVERSE)
-            .IMU_HardwareMapName("imu")
-            .IMU_Orientation(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
+            .strafeEncoderDirection(Encoder.REVERSE);
+//            .IMU_HardwareMapName("imu")
+//            .IMU_Orientation(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
 
 }
