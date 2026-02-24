@@ -148,8 +148,16 @@ public class AprilTagReader {
         Matrix rotationMatrix = rotationMatrixFromRpy(roll, pitch, yaw);
 
         double[] translation = new double[]{x, y, z};
-
-        return Transformation.createTransformationMatrix(rotationMatrix.getArrayCopy(), translation);
+        Matrix aprilTagMatrix = Transformation.createTransformationMatrix(rotationMatrix.getArrayCopy(), translation);
+        double[][] x_axis_90_degrees_rotation_double = new double[][]{
+                {1, 0, 0, 0},
+                {0,Math.cos(Math.PI/2),-Math.sin(Math.PI/2),0},
+                {0,Math.sin(Math.PI/2),Math.cos(Math.PI/2),0},
+                {0,0,0,1}
+        };
+        Matrix x_axis_90_degrees_rotation_matrix = new Matrix(x_axis_90_degrees_rotation_double);
+        Matrix output = aprilTagMatrix.times(x_axis_90_degrees_rotation_matrix);
+        return  output;
     }
 
     private boolean isFinite(double value) {

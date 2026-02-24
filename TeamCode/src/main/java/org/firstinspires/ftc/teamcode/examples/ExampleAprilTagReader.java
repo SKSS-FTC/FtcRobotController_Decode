@@ -8,6 +8,7 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.firstinspires.ftc.teamcode.subsystem.AprilTagReader;
+import android.util.Size;
 
 import Jama.Matrix;
 import java.util.ArrayList;
@@ -32,7 +33,9 @@ public class ExampleAprilTagReader extends LinearOpMode {
         //         .setTagFamily(AprilTagGameDatabase.getCurrentGameTagFamily())
         //         .setTagLibrary(AprilTagGameDatabase.getTagLibrary())
         //         .build();
-        AprilTagProcessor aprilTagProcessor = new AprilTagProcessor.Builder().build();
+        AprilTagProcessor aprilTagProcessor = new AprilTagProcessor.Builder()
+                .setLensIntrinsics(1420.410149146399, 1422.8435764951637, 1026.5786658861796, 565.243885883523)
+                .build();
 
         aprilTagReader.setProcessor(aprilTagProcessor);
 
@@ -42,6 +45,7 @@ public class ExampleAprilTagReader extends LinearOpMode {
         // Set camera (webcam will be selected if configured)
         CameraName cameraName = hardwareMap.get(CameraName.class, "Webcam 1");
         builder.setCamera(cameraName);
+        builder.setCameraResolution(new Size(1920, 1080));
 
         // Build and start portal
         visionPortal = builder.build();

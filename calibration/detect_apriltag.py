@@ -3,7 +3,7 @@ AprilTag detection with pose matrix output using pupil-apriltags + OpenCV.
 Loads camera intrinsics from camera_calibration.yaml.
 
 Usage:
-    python detect_apriltag.py [--tag-size 0.166] [--family tag36h11] [--camera 0]
+    python detect_apriltag.py [--tag-size 0.165] [--family tag36h11] [--camera 1]
 """
 
 import argparse
@@ -132,9 +132,13 @@ def main():
             pose[:3, 3] = pose_t.flatten()
 
             # apply a 90° rotation about the X axis (tag pitched forward)
+            # x90 = np.array([[1,  0,       0,      0],
+            #                  [0,  np.cos(np.pi/-2), -np.sin(np.pi/-2), 0],
+            #                  [0,  np.sin(np.pi/-2),  np.cos(np.pi/-2), 0],
+            #                  [0,  0,       0,      1]], dtype=np.float64)
             x90 = np.array([[1,  0,       0,      0],
-                             [0,  np.cos(np.pi/2), -np.sin(np.pi/2), 0],
-                             [0,  np.sin(np.pi/2),  np.cos(np.pi/2), 0],
+                             [0,  np.cos(0), -np.sin(0), 0],
+                             [0,  np.sin(0),  np.cos(0), 0],
                              [0,  0,       0,      1]], dtype=np.float64)
             pose = pose @ x90
             # pose = np.linalg.inv(pose)  # now tag->camera becomes camera->tag
