@@ -23,12 +23,11 @@ public class TeleOp_Test1 extends LinearOpMode {
         while (opModeIsActive()) {
             driveTrain.setFieldDrive(true);
             driveTrain.update(gamepad1.left_stick_x, gamepad1.left_stick_y, gamepad1.right_stick_x);
-            if (gamepad1.left_trigger_pressed) {
+            if (gamepad1.left_trigger > 0.5) {
                 intake.intake();
             } else {
                 intake.stop();
             }
         }
-        ;
     }
 }
