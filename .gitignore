@@ -79,3 +79,13 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+
+thoughts/
+.opencode/
+.sisyphus/
+.vscode/
+.venv/
+
+data
+composite_dataset
+models

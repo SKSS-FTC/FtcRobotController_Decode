@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
+import org.opencv.core.Mat;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +23,26 @@ public class Transformation {
     }
 
     public static void initialize() {
-        H_CAMERA_TO_SHOOTER = createIdentityMatrix();
-        H_SHOOTER_TO_BASE = createIdentityMatrix();
+        double a = RobotState.ShooterAngleRobot;
+        double y = Constants.cameraAngleOfElevation;
+        H_CAMERA_TO_SHOOTER = createTransformationMatrix(
+                new double[][]{
+                        // a around z, b around y, y around x
+                        //cos(b) = cos(0) = 1, sin(b) = sin(0) = 0
+                        {Math.cos(a),-1*Math.sin(a)* Math.cos(y),Math.sin(a),Math.sin(y)},
+                        {Math.sin(a),Math.cos(a)*Math.cos(y),-1*Math.cos(a)*Math.sin(y)},
+                        {0,Math.sin(y),Math.cos(y)}
+                },
+                new double[]{0.081,-0.10323,0.184}
+        );;
+        H_SHOOTER_TO_BASE = createTransformationMatrix(
+                new double[][]{
+                        {0,0,0},
+                        {0,0,0},
+                        {0,0,0}
+                },
+                new double[]{0,-0.08,0.24}
+        );
         TAG_TO_MAP_TRANSFORMS.clear();
     }
 

@@ -8,6 +8,7 @@ import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_PID_KI;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_PID_KD;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_SMC_LAMBDA;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_SMC_ETA;
+import static org.firstinspires.ftc.teamcode.subsystem.Constants.angleTunerAngle;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterMinCheckSecond;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterTargetAngularVelocity;
 import static org.firstinspires.ftc.teamcode.subsystem.RobotState.shooterEncoder;
@@ -181,7 +182,9 @@ public class Shooter {
     }
 
     private void setShootingAngle(double distance) {
-        double output = distance * 0.01;
+//        double output = distance * 0.01;
+        double output = angleTunerAngle;
+        //0.04-0.3
         angleTuner.setPosition(output);
     }
 
