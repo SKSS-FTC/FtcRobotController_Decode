@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 public class Setting_velocity extends LinearOpMode {
     private DcMotorEx leftmotor;
     private DcMotorEx rightmotor;
-    private DcMotorEx
 
     static final double     COUNTS_PER_MOTOR_REV    = 28.0;
     static final double     DRIVE_GEAR_REDUCTION    = 30.24;
