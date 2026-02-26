@@ -94,8 +94,8 @@ public class ExampleKalmanFilterOdometry extends LinearOpMode {
         aprilTagReader = new AprilTagReader();
         aprilTagReader.setProcessor(aprilTagProcessor);
         Transformation.initialize();
-        Transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.TAG_20_TO_MAP);
-        Transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.TAG_24_TO_MAP);
+        Transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.BLUE_GOAL_TAG_MAP_FRAME);
+        Transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.RED_GOAL_TAG_MAP_FRAME);
 
         kalmanFilter = new KalmanFilter.Builder()
                 .setProcessNoiseXY(0.02)

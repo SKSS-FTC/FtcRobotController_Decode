@@ -46,7 +46,7 @@ public class ExampleAprilTagReader extends LinearOpMode {
         // Set camera (webcam will be selected if configured)
         CameraName cameraName = hardwareMap.get(CameraName.class, "Webcam 1");
         builder.setCamera(cameraName);
-        builder.setCameraResolution(new Size(1280, 720));
+        builder.setCameraResolution(new Size(1920, 1080));
 
         // Build and start portal
         visionPortal = builder.build();

@@ -49,8 +49,8 @@ public class Localizer {
 
     private Localizer(Builder builder) {
         Transformation.initialize();
-        Transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.TAG_20_TO_MAP);
-        Transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.TAG_24_TO_MAP);
+        Transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.BLUE_GOAL_TAG_MAP_FRAME);
+        Transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.RED_GOAL_TAG_MAP_FRAME);
 
         this.mergedXMeters = builder.startingPose.getX() * INCH_TO_METER;
         this.mergedYMeters = builder.startingPose.getY() * INCH_TO_METER;

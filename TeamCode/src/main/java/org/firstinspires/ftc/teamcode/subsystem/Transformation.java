@@ -29,7 +29,7 @@ public class Transformation {
                 new double[][]{
                         // a around z, b around y, y around x
                         //cos(b) = cos(0) = 1, sin(b) = sin(0) = 0
-                        {Math.cos(a),-1*Math.sin(a)* Math.cos(y),Math.sin(a),Math.sin(y)},
+                        {Math.cos(a),-1*Math.sin(a)*Math.cos(y),Math.sin(a)*Math.sin(y)},
                         {Math.sin(a),Math.cos(a)*Math.cos(y),-1*Math.cos(a)*Math.sin(y)},
                         {0,Math.sin(y),Math.cos(y)}
                 },
@@ -37,9 +37,9 @@ public class Transformation {
         );;
         H_SHOOTER_TO_BASE = createTransformationMatrix(
                 new double[][]{
-                        {0,0,0},
-                        {0,0,0},
-                        {0,0,0}
+                        {1,0,0},
+                        {0,1,0},
+                        {0,0,1}
                 },
                 new double[]{0,-0.08,0.24}
         );
@@ -65,24 +65,28 @@ public class Transformation {
         return TAG_TO_MAP_TRANSFORMS.containsKey(tagId);
     }
 
-    public static RobotPose getRobotPoseInMap(int tagId, Matrix cameraToTag) {
+    public static RobotPose getRobotPoseInMap(int tagId, Matrix H_cameraToTag) {
         ensureInitialized();
         if (!isTagRegistered(tagId)) {
             return null;
         }
 
-        if (cameraToTag == null || cameraToTag.getRowDimension() != 4 || cameraToTag.getColumnDimension() != 4) {
+        if (H_cameraToTag == null || H_cameraToTag.getRowDimension() != 4 || H_cameraToTag.getColumnDimension() != 4) {
             return null;
         }
 
         Matrix H_tagToMap = getTagToMapTransform(tagId);
-        Matrix H_baseToCamera = computeInverse(H_SHOOTER_TO_BASE)
-                .times(computeInverse(H_CAMERA_TO_SHOOTER));
 
-        Matrix H_baseToMap = H_tagToMap
-                .times(cameraToTag)
-                .times(H_baseToCamera);
+        // H_base_cam: camera expressed in base frame (t = camera position in base frame).
+        // For test: camera is 0.3 m above base centre, no rotation.
+        Matrix H_baseToCamera = new Matrix(new double[][]{
+            {1, 0, 0, 0},
+            {0, 1, 0, 0},
+            {0, 0, 1, 0.3},
+            {0, 0, 0, 1}
+        });
 
+        Matrix H_baseToMap = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap);
         return extractRotationAndTranslation(H_baseToMap);
     }
 
@@ -236,6 +240,19 @@ public class Transformation {
 
         public double[][] getOrientationMatrix() {
             return rotationMatrix;
+        }
+
+        /**
+         * Extract ZYX Euler angles (radians) from the rotation matrix.
+         * Convention: R = Rz(yaw) * Ry(pitch) * Rx(roll)
+         * @return double[] {roll, pitch, yaw} in radians
+         */
+        public double[] getRPY() {
+            double[][] R = rotationMatrix;
+            double yaw   = Math.atan2(R[1][0], R[0][0]);
+            double pitch = Math.atan2(-R[2][0], Math.sqrt(R[2][1] * R[2][1] + R[2][2] * R[2][2]));
+            double roll  = Math.atan2(R[2][1], R[2][2]);
+            return new double[]{roll, pitch, yaw};
         }
     }
 

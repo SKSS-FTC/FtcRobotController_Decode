@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
 import com.acmerobotics.dashboard.config.Config;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 import Jama.Matrix;
 
@@ -28,13 +27,19 @@ public class Constants {
     // Map Center to Map Corner Transformation
     // ============================================
     public static final double[] FIELD_CENTER_TO_CORNER_TRANSLATION = {-HALF_FIELD_METERS, -HALF_FIELD_METERS, 0.0};
+    public static final Matrix FIELD_CENTER_TO_MAP_CORNER = Transformation.createTransformationMatrix(
+            new double[][]{{1,0,0},{0,1,0},{0,0,1}},
+            FIELD_CENTER_TO_CORNER_TRANSLATION
+    );
 
     // ============================================
     // AprilTag Positions (in meters from field center)
     // Measured values from real DECODE field (~1mm precision)
     // ============================================
-    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, -1.413, 0.7493, Math.toRadians(54)}, 4);
-    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493, Math.toRadians(-54)}, 4);
+    // Tag 20 (BLUE): upper-left  -> field-center X=-1.482 (left wall), Y=+1.413 (upper half)
+    // Tag 24 (RED):  upper-right -> field-center X=+1.482 (right wall),  Y=+1.413 (upper half)
+    public static final Matrix BLUE_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{-1.482, 1.413, 0.7493}, 3);
+    public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{1.482, 1.413, 0.7493}, 3);
 
     // ============================================
     // AprilTag Rotations (radians, measured from real DECODE field)
@@ -43,89 +48,55 @@ public class Constants {
     public static final double RED_GOAL_TAG_ROTATION_YAW = Math.toRadians(-54);
 
     // ============================================
-    // AprilTag Rotation Matrices (3x3 as Matrix objects)
+    // AprilTag Transformations (4x4 homogeneous transformation matrices from field center to tag frame)
     // ============================================
-
-    public static final Matrix ROTATION_MATRIX_TAG_20;
+    // Tag rotation = Rz(yaw) * Rx(90deg): face normal points horizontally toward field center.
+    public static final Matrix BLUE_GOAL_TAG_CENTER_FRAME;
     static {
-        ROTATION_MATRIX_TAG_20 = new Matrix(new double[][]{
-            {Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), -Math.sin(BLUE_GOAL_TAG_ROTATION_YAW), 0},
-            {Math.sin(BLUE_GOAL_TAG_ROTATION_YAW),  Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), 0},
-            {0,                                 0,                                        1}
-        });
-    }
-
-    public static final Matrix ROTATION_MATRIX_TAG_24;
-    static {
-        ROTATION_MATRIX_TAG_24 = new Matrix(new double[][]{
-            {Math.cos(RED_GOAL_TAG_ROTATION_YAW), -Math.sin(RED_GOAL_TAG_ROTATION_YAW), 0},
-            {Math.sin(RED_GOAL_TAG_ROTATION_YAW),  Math.cos(RED_GOAL_TAG_ROTATION_YAW), 0},
-            {0,                                 0,                                        1}
-        });
-    }
-
-    // ============================================
-    // AprilTag Transformation Matrices (4x4 homogeneous)
-    // ============================================
-
-    /**
-     * Transformation matrices from field center to map corner
-     * Map origin: bottom left corner of field
-     */
-    public static final Matrix FIELD_CENTER_TO_MAP_CORNER;
-    static {
-        FIELD_CENTER_TO_MAP_CORNER = Transformation.createTransformationMatrix(
+        double y = BLUE_GOAL_TAG_ROTATION_YAW;
+        BLUE_GOAL_TAG_CENTER_FRAME = Transformation.createTransformationMatrix(
             new double[][]{
-                {1, 0, 0},
-                {0, 1, 0},
-                {0, 0, 1}
+                { Math.cos(y), 0,  Math.sin(y)},
+                { Math.sin(y), 0, -Math.cos(y)},
+                { 0,           1,  0          }
             },
-            FIELD_CENTER_TO_CORNER_TRANSLATION
+            new double[]{
+                BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(0, 0),
+                BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(1, 0),
+                BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(2, 0)
+            }
+        );
+    }
+
+    public static final Matrix RED_GOAL_TAG_CENTER_FRAME;
+    static {
+        double y = RED_GOAL_TAG_ROTATION_YAW;
+        RED_GOAL_TAG_CENTER_FRAME = Transformation.createTransformationMatrix(
+            new double[][]{
+                { Math.cos(y), 0,  Math.sin(y)},
+                { Math.sin(y), 0, -Math.cos(y)},
+                { 0,           1,  0          }
+            },
+            new double[]{
+                RED_GOAL_TAG_POSITION_CENTER_FRAME.get(0, 0),
+                RED_GOAL_TAG_POSITION_CENTER_FRAME.get(1, 0),
+                RED_GOAL_TAG_POSITION_CENTER_FRAME.get(2, 0)
+            }
         );
     }
 
     /**
-     * AprilTag transformation matrices - converts AprilTag frame to map corner frame
+     * AprilTag transformation matrices in MAP CORNER frame (4x4)
+     * T_corner_tag = inv(T_center_corner) * T_center_tag
      */
-    public static final Matrix TAG_20_TO_MAP = computeTagToMapTransform(
-        ROTATION_MATRIX_TAG_20, 
-        BLUE_GOAL_TAG_POSITION_CENTER_FRAME
-    );
-
-    public static final Matrix TAG_24_TO_MAP = computeTagToMapTransform(
-        ROTATION_MATRIX_TAG_24,
-        RED_GOAL_TAG_POSITION_CENTER_FRAME
-    );
-
-    private static Matrix computeTagToMapTransform(Matrix rotation, Matrix position) {
-        double[] positionArray = new double[3];
-        for (int i = 0; i < 3; i++) {
-            positionArray[i] = position.get(i, 0);
-        }
-        Matrix tagToCenter = Transformation.createTransformationMatrix(rotation.getArrayCopy(), positionArray);
-        return FIELD_CENTER_TO_MAP_CORNER.times(tagToCenter);
-    }
-
-    private static Matrix toHomogeneousPoint(Matrix point3x1) {
-        return new Matrix(new double[]{
-            point3x1.get(0, 0),
-            point3x1.get(1, 0),
-            point3x1.get(2, 0),
-            1.0
-        }, 4);
-    }
-
-    /**
-     * AprilTag positions in map corner frame (from field center using .times())
-     */
-    public static final Matrix BLUE_GOAL_TAG_POSITION_MAP_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(toHomogeneousPoint(BLUE_GOAL_TAG_POSITION_CENTER_FRAME));
-    public static final Matrix RED_GOAL_TAG_POSITION_MAP_FRAME = FIELD_CENTER_TO_MAP_CORNER.times(toHomogeneousPoint(RED_GOAL_TAG_POSITION_CENTER_FRAME));
+    public static final Matrix BLUE_GOAL_TAG_MAP_FRAME = BLUE_GOAL_TAG_CENTER_FRAME.inverse().times(FIELD_CENTER_TO_MAP_CORNER);
+    public static final Matrix RED_GOAL_TAG_MAP_FRAME  =  RED_GOAL_TAG_CENTER_FRAME.inverse().times(FIELD_CENTER_TO_MAP_CORNER);
 
     /**
      * Shooting target positions in map corner frame (4x1 matrices)
      */
-    public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 0}, 4);
-    public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 0}, 4);
+    public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 1.0}, 4);
+    public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 1.0}, 4);
 
     // ============================================
     // Shooter PID/SMC Control Constants
