@@ -95,7 +95,7 @@ public class AprilTagReader {
      */
     public Matrix getCameraToTagMatrix(int tagId) {
         AprilTagDetection detection = getDetection(tagId);
-        return detectionToCameraToTagMatrix(detection);
+        return getTagToCameraMatrix(tagId).inverse(); // Invert tag-to-camera to get camera-to-tag
     }
 
     /**
@@ -105,8 +105,17 @@ public class AprilTagReader {
      * @return 4x4 homogeneous transformation matrix [R t; 0 1] (meters, radians)
      */
     public Matrix getTagToCameraMatrix(int tagId) {
-        Matrix cameraToTag = getCameraToTagMatrix(tagId);
-        return Transformation.computeInverse(cameraToTag);
+        AprilTagDetection detection = getDetection(tagId);
+        Matrix tagToCamera = detectionToTagToCameraMatrix(detection);
+        Matrix x_rot_90 = Transformation.createTransformationMatrix(
+            new double[][]{
+                {1, 0, 0},
+                {0, 0, -1},
+                {0, 1, 0}
+            },
+            new double[]{0, 0, 0}
+        );
+        return tagToCamera.times(x_rot_90);
     }
 
     /**
@@ -119,46 +128,44 @@ public class AprilTagReader {
         List<Matrix> matrices = new ArrayList<>();
         List<AprilTagDetection> detections = getDetectionsForTags(tagIds);
         for (AprilTagDetection detection : detections) {
-            matrices.add(detectionToCameraToTagMatrix(detection));
+            matrices.add(detectionToTagToCameraMatrix(detection).inverse());
         }
         return matrices;
     }
 
     /**
-     * Convert AprilTagDetection to camera-to-tag transformation matrix (4x4 homogeneous).
+     * Convert AprilTagDetection to tag-to-camera transformation matrix (4x4 homogeneous).
      *
-     * @param detection AprilTag detection with ftcPose (units: inches/degrees)
+     * @param detection AprilTag detection with rawPose (units: meters/radians)
      * @return 4x4 homogeneous transformation matrix [R t; 0 1] (meters, radians)
      */
-    public Matrix detectionToCameraToTagMatrix(AprilTagDetection detection) {
-        if (detection == null || detection.ftcPose == null) {
+    public Matrix detectionToTagToCameraMatrix(AprilTagDetection detection) {
+        if (detection == null || detection.rawPose == null) {
             return Transformation.createIdentityMatrix();
         }
 
-        // ftcPose provides: X, Y, Z (inches), pitch, roll, yaw (degrees)
-        // Convert to meters and radians
-        double x = detection.ftcPose.x * 0.0254;
-        double y = detection.ftcPose.y * 0.0254;
-        double z = detection.ftcPose.z * 0.0254;
-        double pitch = Math.toRadians(detection.ftcPose.pitch);
-        double roll = Math.toRadians(detection.ftcPose.roll);
-        double yaw = Math.toRadians(detection.ftcPose.yaw);
+        // rawPose provides: X, Y, Z (meters) and R (3x3 rotation matrix)
+        double x = detection.rawPose.x;
+        double y = detection.rawPose.y;
+        double z = detection.rawPose.z;
 
-        if (!isFinite(x) || !isFinite(y) || !isFinite(z)
-                || !isFinite(pitch) || !isFinite(roll) || !isFinite(yaw)) {
+        if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
             return Transformation.createIdentityMatrix();
         }
 
-        Matrix R = rotationMatrixFromRpy(roll, pitch, yaw);
-        Matrix H = new Matrix(4, 4);
-        H.setMatrix(0, 2, 0, 2, R);
+        Matrix H = Matrix.identity(4, 4);
+        H.set(0,0, detection.rawPose.R.get(0,0));
+        H.set(0,1, detection.rawPose.R.get(0,1));
+        H.set(0,2, detection.rawPose.R.get(0,2));
+        H.set(1,0, detection.rawPose.R.get(1,0));
+        H.set(1,1, detection.rawPose.R.get(1,1));
+        H.set(1,2, detection.rawPose.R.get(1,2));
+        H.set(2,0, detection.rawPose.R.get(2,0));
+        H.set(2,1, detection.rawPose.R.get(2,1));
+        H.set(2,2, detection.rawPose.R.get(2,2));
         H.set(0, 3, x);
         H.set(1, 3, y);
         H.set(2, 3, z);
-        H.set(3, 0, 0);
-        H.set(3, 1, 0);
-        H.set(3, 2, 0);
-        H.set(3, 3, 1);
         return H;
     }
 
@@ -239,7 +246,7 @@ public class AprilTagReader {
 
         // --- tag → camera transform (R, t) for 3-D projection ---
         // detectionToCameraToTagMatrix returns H_cameraToTag; invert to get H_tagToCamera.
-        Matrix H_cameraToTag = detectionToCameraToTagMatrix(detection);
+        Matrix H_cameraToTag = detectionToTagToCameraMatrix(detection).inverse();
         Matrix H_tagToCamera = Transformation.computeInverse(H_cameraToTag);
 
         double[][] R = H_tagToCamera.getMatrix(0, 2, 0, 2).getArray();
