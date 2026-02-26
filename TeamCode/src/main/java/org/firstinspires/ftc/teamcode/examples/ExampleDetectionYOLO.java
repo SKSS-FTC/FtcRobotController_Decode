@@ -7,6 +7,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.BuiltinCameraDirection;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.teamcode.subsystem.DetectionYOLO;
+import org.firstinspires.ftc.teamcode.subsystem.DetectionYOLO.Coordinate;
+import org.firstinspires.ftc.teamcode.subsystem.DetectionYOLO.DetectionResult;
 import org.firstinspires.ftc.vision.VisionPortal;
 import java.util.List;
 import java.util.Locale;
@@ -66,18 +68,45 @@ public class ExampleDetectionYOLO extends LinearOpMode {
             }
             lastSwitchCamera = SWITCH_CAMERA;
 
-            List<DetectionYOLO.Detection> detections = detector.getLastDetectionsSnapshot();
-                telemetry.addData("Camera", WEBCAM_NAMES[currentWebcamIndex]);
-                telemetry.addData("Detections", detections.size());
-                for (int i = 0; i < Math.min(3, detections.size()); i++) {
-                DetectionYOLO.Detection d = detections.get(i);
+            List<DetectionResult> results = detector.getDetectionResults();
+            List<DetectionYOLO.Detection> rejected = detector.getRejectedDetections();
+
+            telemetry.addData("Camera", WEBCAM_NAMES[currentWebcamIndex]);
+            telemetry.addData("Valid Detections", results.size());
+            telemetry.addData("Rejected (non-square)", rejected.size());
+
+            for (int i = 0; i < Math.min(3, results.size()); i++) {
+                DetectionResult r = results.get(i);
+                Coordinate coord = r.worldCoordinate;
                 telemetry.addData(
                     "Det " + i,
-                    String.format(Locale.US,
-                        "%s %.1f%% at [%.4f, %.4f, %.4f, %.4f]",
-                        d.className, d.confidence * 100f,
-                        d.x, d.y, d.width, d.height));
-                }
+                    String.format(Locale.US, "%s %.1f%% dist=%.2fm",
+                        r.tag, r.confidence * 100, r.estimatedDistance));
+                telemetry.addData(
+                    "  Coord",
+                    String.format(Locale.US, "X=%.3f Y=%.3f Z=%.3f (m)",
+                        coord.x, coord.y, coord.z));
+                telemetry.addData(
+                    "  Angle",
+                    String.format(Locale.US, "%.1f deg",
+                        Math.toDegrees(r.horizontalAngle)));
+            }
+
+            DetectionResult greenBall = detector.getBestGreenBallDetection();
+            if (greenBall != null) {
+                Coordinate gc = greenBall.worldCoordinate;
+                telemetry.addData("Green Ball", "dist=%.2fm coord=%s angle=%.1fdeg",
+                    greenBall.estimatedDistance, gc.toString(),
+                    Math.toDegrees(greenBall.horizontalAngle));
+            }
+
+            DetectionResult purpleBall = detector.getBestPurpleBallDetection();
+            if (purpleBall != null) {
+                Coordinate pc = purpleBall.worldCoordinate;
+                telemetry.addData("Purple Ball", "dist=%.2fm coord=%s angle=%.1fdeg",
+                    purpleBall.estimatedDistance, pc.toString(),
+                    Math.toDegrees(purpleBall.horizontalAngle));
+            }
 
             telemetry.update();
             sleep(50);

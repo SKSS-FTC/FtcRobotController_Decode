@@ -55,10 +55,12 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                     .setCamera(webcams.get(0))
                     .addProcessor(aprilTag)
                     .setCameraResolution(new Size(1920, 1080))
+                    .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
                     .build();
 
             aprilTagReader = new AprilTagReader();
             aprilTagReader.setProcessor(aprilTag);
+            aprilTag.setPoseSolver(AprilTagProcessor.PoseSolver.OPENCV_SQPNP);
 
             transformation = new Transformation();
             transformation.initialize();
@@ -115,7 +117,7 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                         }
 
                         // Print RPY of the apriltag, convert the rotation matrix to RPY for easier interpretation
-                        telemetry.addData(String.format("Tag %d Camera->Tag Rot [deg]", tagId),
+                        telemetry.addData(String.format("Tag %d Tag->Camera Rot [deg]", tagId),
                             "R: %.1f  P: %.1f  Y: %.1f",
                             Math.toDegrees(Math.atan2(H_camera_to_tag.get(2, 1), H_camera_to_tag.get(2, 2))), // roll
                             Math.toDegrees(Math.atan2(-H_camera_to_tag.get(2, 0), Math.sqrt(H_camera_to_tag.get(2, 1)*H_camera_to_tag.get(2, 1) + H_camera_to_tag.get(2, 2)*H_camera_to_tag.get(2, 2)))), // pitch

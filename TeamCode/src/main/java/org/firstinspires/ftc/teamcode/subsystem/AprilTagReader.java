@@ -109,13 +109,39 @@ public class AprilTagReader {
         Matrix tagToCamera = detectionToTagToCameraMatrix(detection);
         Matrix x_rot_90 = Transformation.createTransformationMatrix(
             new double[][]{
-                {1, 0, 0},
-                {0, 0, -1},
-                {0, 1, 0}
+//                {1, 0, 0},
+//                {0, Math.cos(Math.PI/2), -Math.sin(Math.PI/2)},
+//                {0, Math.sin(Math.PI/2), Math.cos(Math.PI/2)}
+                    {1, 0, 0},
+                    {0, 0, 1},
+                    {0, -1, 0}
             },
             new double[]{0, 0, 0}
         );
-        return tagToCamera.times(x_rot_90);
+        Matrix z_rot_90 = Transformation.createTransformationMatrix(
+                new double[][]{
+                        {0,-1,0},
+                        {1,0,0},
+                        {0,0,1}
+                },
+                new double[]{0,0,0}
+        );
+        Matrix y_rot_180 = Transformation.createTransformationMatrix(
+                new double[][]{
+                        {-1,0,0},
+                        {0,1,0},
+                        {0,0,-1}
+                },
+                new double[]{0,0,0}
+        );
+        Matrix rotated_x = x_rot_90.times(tagToCamera);
+        Matrix rotated_z = z_rot_90.times(rotated_x);
+        Matrix rotated_y = y_rot_180.times(rotated_z);
+        double y = rotated_y.get(1,3);
+        double x = rotated_y.get(0,3);
+        rotated_y.set(1,3,x);
+        rotated_y.set(0,3,y);
+        return rotated_y;
     }
 
     /**

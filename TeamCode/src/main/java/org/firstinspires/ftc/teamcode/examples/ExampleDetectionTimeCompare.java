@@ -57,6 +57,7 @@ public class ExampleDetectionTimeCompare extends LinearOpMode {
     private int currentWebcamIndex = 0;
     private boolean lastSwitchModel = false;
     private boolean lastSwitchCamera = false;
+    private List<DetectionYOLO.Detection> previousDetections = null;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -141,21 +142,23 @@ public class ExampleDetectionTimeCompare extends LinearOpMode {
             wasSquarePressed = gamepad1.square;
 
             if (isLogging) {
-                List<DetectionYOLO.Detection> detections = detector.getLastDetectionsSnapshot();
+                List<DetectionYOLO.Detection> currentDetections = detector.getLastDetectionsSnapshot();
+                if (currentDetections != previousDetections && currentDetections != null) {
+                    if (!isFirstFrame) {
+                        double frameTimeMs = frameTimer.milliseconds();
+                        currentFrameTimes.add(frameTimeMs);
+                    } else {
+                        isFirstFrame = false;
+                    }
+                    frameTimer.reset();
 
-                if (!isFirstFrame) {
-                    double frameTimeMs = frameTimer.milliseconds();
-                    currentFrameTimes.add(frameTimeMs);
-                } else {
-                    isFirstFrame = false;
+                    telemetry.addData("Model", MODEL_NAMES[currentModelIndex]);
+                    telemetry.addData("Camera", WEBCAM_NAMES[currentWebcamIndex]);
+                    telemetry.addData("Frame Time (ms)", currentFrameTimes.isEmpty() ? "N/A" : String.format("%.2f", currentFrameTimes.get(currentFrameTimes.size() - 1)));
+                    telemetry.addData("Frame Count", currentFrameTimes.size());
+                    telemetry.addData("Detections", currentDetections.size());
+                    previousDetections = currentDetections;
                 }
-                frameTimer.reset();
-
-                telemetry.addData("Model", MODEL_NAMES[currentModelIndex]);
-                telemetry.addData("Camera", WEBCAM_NAMES[currentWebcamIndex]);
-                telemetry.addData("Frame Time (ms)", currentFrameTimes.isEmpty() ? "N/A" : String.format("%.2f", currentFrameTimes.get(currentFrameTimes.size() - 1)));
-                telemetry.addData("Frame Count", currentFrameTimes.size());
-                telemetry.addData("Detections", detections.size());
             } else {
                 telemetry.addData("Model", MODEL_NAMES[currentModelIndex]);
                 telemetry.addData("Camera", WEBCAM_NAMES[currentWebcamIndex]);
