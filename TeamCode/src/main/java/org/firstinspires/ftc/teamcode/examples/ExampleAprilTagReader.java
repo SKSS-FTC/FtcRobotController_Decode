@@ -4,6 +4,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.CameraName;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
@@ -36,6 +38,7 @@ public class ExampleAprilTagReader extends LinearOpMode {
         AprilTagProcessor aprilTagProcessor = new AprilTagProcessor.Builder()
 //                .setLensIntrinsics(1420.410149146399, 1422.8435764951637, 1026.5786658861796, 565.243885883523)
                 .setLensIntrinsics(1426.10, 1424.95, 1075.43, 551.19)
+                .setOutputUnits(DistanceUnit.METER, AngleUnit.RADIANS)
                 .build();
 
         aprilTagReader.setProcessor(aprilTagProcessor);
