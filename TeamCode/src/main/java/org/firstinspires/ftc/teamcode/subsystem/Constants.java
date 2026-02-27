@@ -26,7 +26,7 @@ public class Constants {
     // ============================================
     // Map Center to Map Corner Transformation
     // ============================================
-    public static final double[] FIELD_CENTER_TO_CORNER_TRANSLATION = {-HALF_FIELD_METERS, -HALF_FIELD_METERS, 0.0};
+    public static final double[] FIELD_CENTER_TO_CORNER_TRANSLATION = {HALF_FIELD_METERS, HALF_FIELD_METERS, 0.0};
     public static final Matrix FIELD_CENTER_TO_MAP_CORNER = Transformation.createTransformationMatrix(
             new double[][]{{1,0,0},{0,1,0},{0,0,1}},
             FIELD_CENTER_TO_CORNER_TRANSLATION
@@ -45,56 +45,40 @@ public class Constants {
     // AprilTag Rotations (radians, measured from real DECODE field)
     // ============================================
     public static final double BLUE_GOAL_TAG_ROTATION_YAW = Math.toRadians(54);
-    public static final double RED_GOAL_TAG_ROTATION_YAW = Math.toRadians(-54);
-
-    // ============================================
-    // AprilTag Transformations (4x4 homogeneous transformation matrices from field center to tag frame)
-    // ============================================
-    // Tag rotation = Rz(yaw) * Rx(90deg): face normal points horizontally toward field center.
-    public static final Matrix BLUE_GOAL_TAG_CENTER_FRAME;
-    static {
-        double y = BLUE_GOAL_TAG_ROTATION_YAW;
-        BLUE_GOAL_TAG_CENTER_FRAME = Transformation.createTransformationMatrix(
-            new double[][]{
-                { Math.cos(y), 0,  Math.sin(y)},
-                { Math.sin(y), 0, -Math.cos(y)},
-                { 0,           1,  0          }
-            },
-            new double[]{
-                BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(0, 0),
-                BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(1, 0),
-                BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(2, 0)
-            }
-        );
-    }
-
-    public static final Matrix RED_GOAL_TAG_CENTER_FRAME;
-    static {
-        double y = RED_GOAL_TAG_ROTATION_YAW;
-        RED_GOAL_TAG_CENTER_FRAME = Transformation.createTransformationMatrix(
-            new double[][]{
-                { Math.cos(y), 0,  Math.sin(y)},
-                { Math.sin(y), 0, -Math.cos(y)},
-                { 0,           1,  0          }
-            },
-            new double[]{
-                RED_GOAL_TAG_POSITION_CENTER_FRAME.get(0, 0),
-                RED_GOAL_TAG_POSITION_CENTER_FRAME.get(1, 0),
-                RED_GOAL_TAG_POSITION_CENTER_FRAME.get(2, 0)
-            }
-        );
-    }
+    public static final double RED_GOAL_TAG_ROTATION_YAW = Math.toRadians(54);
 
     /**
      * AprilTag transformation matrices in MAP CORNER frame (4x4)
-     * T_corner_tag = inv(T_center_corner) * T_center_tag
      */
-    public static final Matrix BLUE_GOAL_TAG_MAP_FRAME = BLUE_GOAL_TAG_CENTER_FRAME.inverse().times(FIELD_CENTER_TO_MAP_CORNER);
-    public static final Matrix RED_GOAL_TAG_MAP_FRAME  =  RED_GOAL_TAG_CENTER_FRAME.inverse().times(FIELD_CENTER_TO_MAP_CORNER);
+    public static final Matrix BLUE_GOAL_TAG_MAP_FRAME = Transformation.createTransformationMatrix(
+            new double[][]{
+                    {Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), -Math.sin(BLUE_GOAL_TAG_ROTATION_YAW), 0},
+                    {Math.sin(BLUE_GOAL_TAG_ROTATION_YAW), Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), 0},
+                    {0, 0, 1}
+            },
+            new double[]{
+                    BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(0,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[0],
+                    BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(1,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[1],
+                    BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(2,0)
+            }
+        );
 
     /**
-     * Shooting target positions in map corner frame (4x1 matrices)
+     * AprilTag transformation matrices in MAP CORNER frame (4x4)
      */
+    public static final Matrix RED_GOAL_TAG_MAP_FRAME = Transformation.createTransformationMatrix(
+            new double[][]{
+                    {Math.cos(RED_GOAL_TAG_ROTATION_YAW), -Math.sin(RED_GOAL_TAG_ROTATION_YAW), 0},
+                    {Math.sin(RED_GOAL_TAG_ROTATION_YAW), Math.cos(RED_GOAL_TAG_ROTATION_YAW), 0},
+                    {0, 0, 1}
+            },
+            new double[]{
+                    RED_GOAL_TAG_POSITION_CENTER_FRAME.get(0,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[0],
+                    RED_GOAL_TAG_POSITION_CENTER_FRAME.get(1,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[1],
+                    RED_GOAL_TAG_POSITION_CENTER_FRAME.get(2,0)
+            }
+    );
+
     public static final Matrix BLUE_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{17*0.0254, 138*0.0254, 0.984, 1.0}, 4);
     public static final Matrix RED_SHOOTING_TARGET_POSITION_MAP = new Matrix(new double[]{132*0.0254, 138*0.0254, 0.984, 1.0}, 4);
 

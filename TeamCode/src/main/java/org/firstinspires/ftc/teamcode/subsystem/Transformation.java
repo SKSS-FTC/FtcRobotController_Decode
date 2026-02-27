@@ -87,8 +87,8 @@ public class Transformation {
         });
 
 //        Matrix H_baseToMap = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap);
-        Matrix H_baseToMap = (H_cameraToTag).times(H_tagToMap);
-        return extractRotationAndTranslation(H_baseToMap);
+        Matrix H_mapToBase = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap).inverse();
+        return extractRotationAndTranslation(H_mapToBase);
     }
 
     public static RobotPose getRobotPoseInMapFromMultipleTags(List<TagDetection> tagDetections) {
