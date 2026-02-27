@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 
 import android.sax.EndElementListener;
 
+import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
 import com.pedropathing.ftc.FollowerBuilder;
@@ -15,13 +16,13 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
-import javax.crypto.EncryptedPrivateKeyInfo;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(12);
-
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
+            .mass(12)
+            .translationalPIDFCoefficients(new PIDFCoefficients(0.08,0,0.02,0))
+            .headingPIDFCoefficients(new PIDFCoefficients(0.9, 0, 0.2, 0));
+    public static PathConstraints pathConstraints = new PathConstraints(0.99,   100, 1, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
         return new FollowerBuilder(followerConstants, hardwareMap)
@@ -42,9 +43,9 @@ public class Constants {
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD);
     public static ThreeWheelConstants localizerConstants = new ThreeWheelConstants()
-            .forwardTicksToInches(0.00296532542902055)
-            .strafeTicksToInches(0.0031733746960547833)
-            .turnTicksToInches(0.003152802618455413)
+            .forwardTicksToInches(0.0029299753744086066)
+            .strafeTicksToInches(0.00318307432688396)
+            .turnTicksToInches(0.003168347588783974)
             .leftPodY(2.25)
             .rightPodY(-2.25)
             .strafePodX(-6.25)
@@ -53,7 +54,7 @@ public class Constants {
             .strafeEncoder_HardwareMapName("leftDown")
             .leftEncoderDirection(Encoder.REVERSE)
             .rightEncoderDirection(Encoder.FORWARD)
-            .strafeEncoderDirection(Encoder.REVERSE);
+            .strafeEncoderDirection(Encoder.FORWARD);
 //            .IMU_HardwareMapName("imu")
 //            .IMU_Orientation(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
 

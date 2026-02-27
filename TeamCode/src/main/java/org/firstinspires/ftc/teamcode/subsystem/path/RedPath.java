@@ -53,12 +53,12 @@ public class RedPath {
 
     private void buildPaths(){
         NearScorePreload = follower.pathBuilder()
-                .addPath(new BezierLine(NearStartPose, NearStartPose))
+                .addPath(new BezierLine(NearStartPose, NearShootPose))
                 .setLinearHeadingInterpolation(NearStartPose.getHeading(), NearShootPose.getHeading())
                 .build();
         FarScorePreload = follower.pathBuilder()
                 .addPath(new BezierLine(FarStartPose, FarShootPose))
-                .setLinearHeadingInterpolation(FarPickUp1_start.getHeading(), FarPickUp1_final.getHeading())
+                .setLinearHeadingInterpolation(FarStartPose.getHeading(), FarShootPose.getHeading())
                 .build();
 
         HumanPlayer_Ball = follower.pathBuilder()

@@ -26,7 +26,6 @@ public class Auto_BlueFar extends LinearOpMode {
             }
         }
         if (currentPath <= 1) {
-            //finish path 1
             if (PathGrabShoot2) {
                 currentFarPathState = FarPathState.FarGet_Ball2;
             }

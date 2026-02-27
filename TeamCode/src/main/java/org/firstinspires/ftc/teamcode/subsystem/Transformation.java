@@ -29,7 +29,7 @@ public class Transformation {
                 new double[][]{
                         // a around z, b around y, y around x
                         //cos(b) = cos(0) = 1, sin(b) = sin(0) = 0
-                        {Math.cos(a),-1*Math.sin(a)* Math.cos(y),Math.sin(a),Math.sin(y)},
+                        {Math.cos(a),-1*Math.sin(a)* Math.cos(y),Math.sin(a)*Math.sin(y)},
                         {Math.sin(a),Math.cos(a)*Math.cos(y),-1*Math.cos(a)*Math.sin(y)},
                         {0,Math.sin(y),Math.cos(y)}
                 },
@@ -41,6 +41,7 @@ public class Transformation {
                         {0,0,0},
                         {0,0,0}
                 },
+
                 new double[]{0,-0.08,0.24}
         );
         TAG_TO_MAP_TRANSFORMS.clear();
