@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 
+import org.firstinspires.ftc.robotcore.external.matrices.MatrixF;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.opencv.core.Point;
@@ -128,39 +129,48 @@ public class AprilTagReader {
     }
 
     /**
-     * Convert AprilTagDetection to tag-to-camera transformation matrix (4x4 homogeneous).
+     * Convert AprilTagDetection to camera-to-tag transformation matrix (4x4 homogeneous).
      *
-     * @param detection AprilTag detection with rawPose (units: meters/radians)
-     * @return 4x4 homogeneous transformation matrix [R t; 0 1] (meters, radians)
+     * <p>Uses the <b>raw</b> OpenCV pose ({@code rawPose.R}, {@code rawPose.x/y/z}) so that
+     * the resulting matrix lives in the same coordinate frame as the tag-to-map matrix
+     * built by {@link Transformation#buildRMapTag}:
+     * <ul>
+     *   <li>Camera frame: X-right, Y-down, Z-forward (OpenCV convention)</li>
+     *   <li>Tag frame:    X-right across face, Y-down on face, Z-into wall</li>
+     * </ul>
+     *
+     * <p>This matches the Python reference in {@code calibration/visualize_apriltag_tf.py}:
+     * {@code H_cameraToTag = [pose_R | pose_t; 0 0 0 1]}
+     *
+     * @param detection AprilTag detection (must have a valid {@code rawPose})
+     * @return 4x4 homogeneous matrix H = [R | t; 0 0 0 1] where R rotates tag→camera
+     *         and t is the tag origin in camera frame (meters)
      */
     public Matrix detectionToCameraToTag(AprilTagDetection detection) {
         if (detection == null || detection.rawPose == null) {
             return Transformation.createIdentityMatrix();
         }
 
-        // FTC Pose
-        double x = detection.ftcPose.x;
-        double y = detection.ftcPose.y;
-        double z = detection.ftcPose.z;
-
-        // FTC Rotation (in anticlockwise)
-        double roll_anti = detection.ftcPose.roll;
-        double pitch_anti = detection.ftcPose.pitch;
-        double yaw_anti = detection.ftcPose.yaw;
-
-        // FTC Rotation (in clockwise)
-        double roll = roll_anti;
-        double pitch = -pitch_anti;
-        double yaw = -yaw_anti;
-
-        Matrix R = rotationMatrixFromRpy(roll, pitch, yaw);
+        // Raw translation: tag origin in camera frame (OpenCV: X-right, Y-down, Z-forward)
+        double x = detection.rawPose.x;
+        double y = detection.rawPose.y;
+        double z = detection.rawPose.z;
 
         if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
             return Transformation.createIdentityMatrix();
         }
 
+        // Raw rotation matrix: 3x3 MatrixF, tag→camera in OpenCV frame
+        MatrixF R_raw = detection.rawPose.R;
+        double[][] R = new double[3][3];
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                R[i][j] = R_raw.get(i, j);
+            }
+        }
+
         Matrix H = Matrix.identity(4, 4);
-        H.setMatrix(0, 2, 0, 2, R);
+        H.setMatrix(0, 2, 0, 2, new Matrix(R));
         H.set(0, 3, x);
         H.set(1, 3, y);
         H.set(2, 3, z);

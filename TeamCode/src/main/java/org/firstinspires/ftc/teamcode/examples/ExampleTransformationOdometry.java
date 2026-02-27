@@ -71,18 +71,22 @@ public class ExampleTransformationOdometry extends LinearOpMode {
 
             // Sanity-check: print tag positions in map frame (should all be positive)
             // Map origin = bottom-left corner (0,0). Field = 3.658m x 3.658m.
-            Matrix t20 = Constants.BLUE_GOAL_TAG_MAP_FRAME;
-            Matrix t24 = Constants.RED_GOAL_TAG_MAP_FRAME;
-            // telemetry.addData("Tag 20 map pos",
-            //     "X:%.3f Y:%.3f Z:%.3f", t20.get(0,3), t20.get(1,3), t20.get(2,3));
+            // TAG_MAP_FRAME is ^map T_tag — translation column IS the tag position in map.
+            telemetry.addData("Tag 20 map pos",
+                "X:%.3f Y:%.3f Z:%.3f",
+                Constants.BLUE_GOAL_TAG_MAP_FRAME.get(0,3),
+                Constants.BLUE_GOAL_TAG_MAP_FRAME.get(1,3),
+                Constants.BLUE_GOAL_TAG_MAP_FRAME.get(2,3));
             telemetry.addData("Tag 24 map pos",
-                "X:%.3f Y:%.3f Z:%.3f", t24.get(0,3), t24.get(1,3), t24.get(2,3));
-            telemetry.addData("Tag 24 map rot (deg)",
-                "R:%.1f P:%.1f Y:%.1f",
-                Math.toDegrees(Math.atan2(-t24.get(0,2), t24.get(0,0))), // roll
-                Math.toDegrees(Math.atan2(-t24.get(1,2), t24.get(1,1))), // pitch
-                Math.toDegrees(Math.atan2(-t24.get(0,1), t24.get(0,0)))  // yaw
-            );
+                "X:%.3f Y:%.3f Z:%.3f",
+                Constants.RED_GOAL_TAG_MAP_FRAME.get(0,3),
+                Constants.RED_GOAL_TAG_MAP_FRAME.get(1,3),
+                Constants.RED_GOAL_TAG_MAP_FRAME.get(2,3));
+            // Extract yaw from Rz rotation block: yaw = atan2(R[1][0], R[0][0])
+            telemetry.addData("Tag 24 yaw (deg)", "%.1f",
+                Math.toDegrees(Math.atan2(
+                    Constants.RED_GOAL_TAG_MAP_FRAME.get(1,0),
+                    Constants.RED_GOAL_TAG_MAP_FRAME.get(0,0))));
             
             telemetry.addData("Status", "Ready - press PLAY");
             telemetry.update();

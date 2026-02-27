@@ -42,36 +42,34 @@ public class Constants {
     public static final Matrix RED_GOAL_TAG_POSITION_CENTER_FRAME = new Matrix(new double[]{1.482, 1.413, 0.7493}, 3);
 
     // ============================================
-    // AprilTag Rotations (radians, measured from real DECODE field)
+    // AprilTag Rotations – yaw around map-Z (radians)
+    // Convention matches build_R_map_tag() in visualize_apriltag_tf.py:
+    //   tag-Z (face normal) points INTO the wall; camera is in -tag-Z direction (inside field).
+    //   ψ = +54° → BLUE tag (upper-left wall)  face normal ≈ (-0.809, +0.588, 0)
+    //   ψ = -54° → RED  tag (upper-right wall) face normal ≈ (+0.809, +0.588, 0)
     // ============================================
-    public static final double BLUE_GOAL_TAG_ROTATION_YAW = Math.toRadians(54);
-    public static final double RED_GOAL_TAG_ROTATION_YAW = Math.toRadians(54);
+    public static final double BLUE_GOAL_TAG_ROTATION_YAW = Math.toRadians( 54);  // +54°
+    public static final double RED_GOAL_TAG_ROTATION_YAW  = Math.toRadians(-54);  // -54°
 
     /**
-     * AprilTag transformation matrices in MAP CORNER frame (4x4)
+     * AprilTag→Map transformation matrices (4x4 homogeneous, map-corner frame).
+     *
+     * <p>The rotation block uses {@link Transformation#buildRMapTag} which correctly
+     * maps the OpenCV tag frame (X-right, Y-down, Z-into-wall) into the FTC map
+     * frame (X-east, Y-north, Z-up).  This matches the Python reference implementation
+     * in {@code calibration/visualize_apriltag_tf.py}.
      */
     public static final Matrix BLUE_GOAL_TAG_MAP_FRAME = Transformation.createTransformationMatrix(
-            new double[][]{
-                    {Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), -Math.sin(BLUE_GOAL_TAG_ROTATION_YAW), 0},
-                    {Math.sin(BLUE_GOAL_TAG_ROTATION_YAW), Math.cos(BLUE_GOAL_TAG_ROTATION_YAW), 0},
-                    {0, 0, 1}
-            },
+            Transformation.buildRMapTag(BLUE_GOAL_TAG_ROTATION_YAW),
             new double[]{
                     BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(0,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[0],
                     BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(1,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[1],
                     BLUE_GOAL_TAG_POSITION_CENTER_FRAME.get(2,0)
             }
-        );
+    );
 
-    /**
-     * AprilTag transformation matrices in MAP CORNER frame (4x4)
-     */
     public static final Matrix RED_GOAL_TAG_MAP_FRAME = Transformation.createTransformationMatrix(
-            new double[][]{
-                    {Math.cos(RED_GOAL_TAG_ROTATION_YAW), -Math.sin(RED_GOAL_TAG_ROTATION_YAW), 0},
-                    {Math.sin(RED_GOAL_TAG_ROTATION_YAW), Math.cos(RED_GOAL_TAG_ROTATION_YAW), 0},
-                    {0, 0, 1}
-            },
+            Transformation.buildRMapTag(RED_GOAL_TAG_ROTATION_YAW),
             new double[]{
                     RED_GOAL_TAG_POSITION_CENTER_FRAME.get(0,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[0],
                     RED_GOAL_TAG_POSITION_CENTER_FRAME.get(1,0) + FIELD_CENTER_TO_CORNER_TRANSLATION[1],
