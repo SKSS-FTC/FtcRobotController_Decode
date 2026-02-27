@@ -122,13 +122,11 @@ public class shooterAlgorithmTest2 extends LinearOpMode {
             }else if (gamepad1.dpad_down){
                 intake.intake();
             }else if(gamepad1.right_trigger>0.5){
-                intake.stop();
-                intake.setKickerPosition(0);
-                sleep(150);
-                intake.setKickerPosition(0.4);
+                intake.shoot();
             }else{
                 intake.stop();
             }
+            intake.update();
             telemetry.addData("angular velocity",shooter.getShootVelocity());
 
             shooter.update(STARTING_POSE,0);

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
+import static org.firstinspires.ftc.teamcode.subsystem.Constants.cameraAngleOfElevation;
+
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -94,8 +96,23 @@ public class AprilTagReader {
      * @return 4x4 homogeneous transformation matrix [R t; 0 1] (meters, radians), or identity if not found
      */
     public Matrix getCameraToTagMatrix(int tagId) {
-        AprilTagDetection detection = getDetection(tagId);
-        return getTagToCameraMatrix(tagId).inverse(); // Invert tag-to-camera to get camera-to-tag
+        Matrix H_tagToCamera = getTagToCameraMatrix(tagId);
+        if (H_tagToCamera == null) {
+            return Transformation.createIdentityMatrix();
+        }
+        Matrix H_cameraToTag = H_tagToCamera.inverse();
+        
+        double[] rpy = extractRollPitchYaw(H_cameraToTag);
+        double roll = 0;
+        double pitch = Constants.cameraAngleOfElevation;
+        double yaw = rpy[2] - Math.toRadians(22.5);
+
+        Matrix newRotation = rotationMatrixFromRpy(roll, pitch, yaw);
+        Matrix newTransform = Transformation.createTransformationMatrix(
+                newRotation.getArrayCopy(),
+                new double[]{H_cameraToTag.get(0, 3), H_cameraToTag.get(1, 3), H_cameraToTag.get(2, 3)}
+        );
+        return newTransform;
     }
 
     /**
@@ -143,9 +160,11 @@ public class AprilTagReader {
         rotated_y.set(0,3,y);
         
         double[] rpy = extractRollPitchYaw(rotated_y);
-        double roll = 0;
+//        double roll = 0;
+        double roll = rpy[0];
         double pitch = rpy[1];
-        double yaw = rpy[2] - Math.PI / 2;
+        double yaw = rpy[2];
+//        double yaw = rpy[2] - Math.toRadians(90);
         
         Matrix newRotation = rotationMatrixFromRpy(roll, pitch, yaw);
         Matrix newTransform = Transformation.createTransformationMatrix(

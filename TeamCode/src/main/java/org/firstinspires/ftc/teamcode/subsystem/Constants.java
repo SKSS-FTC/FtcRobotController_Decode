@@ -122,6 +122,6 @@ public class Constants {
     public static double rightSliderServoClose = 0;
     public static double leftSliderServoOpen = 1;
     public static double rightSliderServoOpen = 1;
-    public static double cameraAngleOfElevation = (double) 18 /180 *Math.PI;
+    public static double cameraAngleOfElevation = (double) 18 /180 ;
     public static double angleTunerAngle = 0.04;
 }

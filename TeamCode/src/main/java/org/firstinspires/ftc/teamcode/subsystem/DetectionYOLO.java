@@ -390,7 +390,7 @@ public class DetectionYOLO {
             return new Coordinate(0, 0, 0);
         }
 
-        double adjustedElevation = Constants.cameraAngleOfElevation - verticalAngle;
+        double adjustedElevation = Constants.cameraAngleOfElevation * Math.PI - verticalAngle;
 
         double groundDistance = distance * Math.cos(adjustedElevation);
         double worldX = distance * Math.sin(horizontalAngle);

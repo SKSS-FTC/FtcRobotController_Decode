@@ -24,7 +24,7 @@ public class Transformation {
 
     public static void initialize() {
         double a = RobotState.ShooterAngleRobot;
-        double y = Constants.cameraAngleOfElevation;
+        double y = Constants.cameraAngleOfElevation * Math.PI;
         H_CAMERA_TO_SHOOTER = createTransformationMatrix(
                 new double[][]{
                         // a around z, b around y, y around x
