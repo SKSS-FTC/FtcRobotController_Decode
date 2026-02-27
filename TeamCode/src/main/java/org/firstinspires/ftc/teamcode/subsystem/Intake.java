@@ -24,6 +24,12 @@ public class Intake {
     public void intake(){intake.setPower(1);}
     public void stop(){intake.setPower(0);}
     public void reserve(){intake.setPower(-0.2);}
+    public void shoot(){
+        stop();
+        setKickerPosition(0);
+        sleep(150);
+        setKickerPosition(0.4);
+    }
     public void setKickerPosition(double target){
         kicker.setPosition(target);
     }

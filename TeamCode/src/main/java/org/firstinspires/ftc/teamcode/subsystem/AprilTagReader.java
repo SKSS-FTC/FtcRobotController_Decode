@@ -141,7 +141,18 @@ public class AprilTagReader {
         double x = rotated_y.get(0,3);
         rotated_y.set(1,3,x);
         rotated_y.set(0,3,y);
-        return rotated_y;
+        
+        double[] rpy = extractRollPitchYaw(rotated_y);
+        double roll = 0;
+        double pitch = rpy[1];
+        double yaw = rpy[2] - Math.PI / 2;
+        
+        Matrix newRotation = rotationMatrixFromRpy(roll, pitch, yaw);
+        Matrix newTransform = Transformation.createTransformationMatrix(
+            newRotation.getArrayCopy(),
+            new double[]{rotated_y.get(0, 3), rotated_y.get(1, 3), rotated_y.get(2, 3)}
+        );
+        return newTransform;
     }
 
     /**
@@ -230,6 +241,20 @@ public class AprilTagReader {
         r[2][2] = cp * cr;
 
         return new Matrix(r);
+    }
+
+    private double[] extractRollPitchYaw(Matrix H) {
+        double r00 = H.get(0, 0);
+        double r10 = H.get(1, 0);
+        double r20 = H.get(2, 0);
+        double r21 = H.get(2, 1);
+        double r22 = H.get(2, 2);
+        
+        double pitch = Math.asin(-r20);
+        double yaw = Math.atan2(r10, r00);
+        double roll = Math.atan2(r21, r22);
+        
+        return new double[]{roll, pitch, yaw};
     }
 
     /**
