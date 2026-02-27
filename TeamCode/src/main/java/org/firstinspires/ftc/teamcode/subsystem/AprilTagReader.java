@@ -101,16 +101,21 @@ public class AprilTagReader {
             return Transformation.createIdentityMatrix();
         }
         Matrix H_cameraToTag = H_tagToCamera.inverse();
-        
+
+        double[] translation = {-1*H_cameraToTag.get(0, 3), H_cameraToTag.get(1, 3), -1*H_cameraToTag.get(2, 3)};
+        translation[2] = translation[1];
+        translation[1] = translation[0];
+        translation[0] = -1 * H_cameraToTag.get(2, 3);
+
         double[] rpy = extractRollPitchYaw(H_cameraToTag);
-        double roll = 0;
-        double pitch = Constants.cameraAngleOfElevation;
-        double yaw = rpy[2] - Math.toRadians(22.5);
+        double roll = rpy[0];//0
+        double pitch = rpy[1];//Constants.cameraAngleOfElevation;
+        double yaw = rpy[2];// - Math.toRadians(22.5);
 
         Matrix newRotation = rotationMatrixFromRpy(roll, pitch, yaw);
         Matrix newTransform = Transformation.createTransformationMatrix(
                 newRotation.getArrayCopy(),
-                new double[]{H_cameraToTag.get(0, 3), H_cameraToTag.get(1, 3), H_cameraToTag.get(2, 3)}
+                translation
         );
         return newTransform;
     }
