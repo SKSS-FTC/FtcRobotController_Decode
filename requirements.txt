@@ -17,3 +17,8 @@ onnx2tf
 
 # Utility tools
 requests==2.31.0
+
+
+# AprilTag TF Visualization
+scipy>=1.10.0
+matplotlib>=3.7.0
