@@ -9,6 +9,8 @@ import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_PID_KD;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_SMC_LAMBDA;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.SHOOTER_SMC_ETA;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.angleTunerAngle;
+import static org.firstinspires.ftc.teamcode.subsystem.Constants.gateClose;
+import static org.firstinspires.ftc.teamcode.subsystem.Constants.gateOpen;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterMinCheckSecond;
 import static org.firstinspires.ftc.teamcode.subsystem.Constants.shooterTargetAngularVelocity;
 import static org.firstinspires.ftc.teamcode.subsystem.RobotState.shooterEncoder;
@@ -41,7 +43,7 @@ public class Shooter {
     }
 
     private DcMotorEx rotate, shooter;
-    private Servo angleTuner;
+    private Servo angleTuner,gate;
     private Pose currentPose, relativeShootingVector;
     private double absoluteShooterHeading = 0, relativeShooterHeading = 0;
     public boolean shooterAiming = false;
@@ -83,9 +85,11 @@ public class Shooter {
         shooter = hardwareMap.get(DcMotorEx.class, "shoot");
         angleTuner = hardwareMap.get(Servo.class, "angleTuner");
 
+
         rotate.setDirection(DcMotorSimple.Direction.REVERSE);
         shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         angleTuner.setDirection(Servo.Direction.FORWARD);
+        gate.setDirection(Servo.Direction.FORWARD);
 
         rotate.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
@@ -94,12 +98,21 @@ public class Shooter {
         rotate.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        gate.setPosition(gateClose);
 
         timer = new ElapsedTime();
     }
 
     public void setAlliance(Alliance alliance) {
         this.alliance = alliance;
+    }
+
+    public void openGate(){
+        gate.setPosition(gateOpen);
+    }
+
+    public void closeGate(){
+        gate.setPosition(gateClose);
     }
 
     public Alliance getAlliance() {
@@ -169,11 +182,7 @@ public class Shooter {
             }
 
             double algorithmOutput;
-            if (SHOOTER_PID) {
-                algorithmOutput = getShooterPIDFPower(targetAngularVelocity, currentAngularVelocity);
-            } else {
-                algorithmOutput = getShooterSMCPower(targetAngularVelocity, currentAngularVelocity);
-            }
+            algorithmOutput = getShooterSMCPower(targetAngularVelocity, currentAngularVelocity);
             double targetTicksPerSecond = targetAngularVelocity / (2 * Math.PI) * TICKS_PER_REVOLUTION;
             double algorithmCorrectionTicks = algorithmOutput / (2 * Math.PI) * TICKS_PER_REVOLUTION;
             shooter.setVelocity(targetTicksPerSecond + algorithmCorrectionTicks);
@@ -186,14 +195,6 @@ public class Shooter {
         double output = angleTunerAngle;
         //0.04-0.3
         angleTuner.setPosition(output);
-    }
-
-    private double getShooterPIDFPower(double targetAngularVelocity, double currentAngularVelocity) {
-        double error = targetAngularVelocity - currentAngularVelocity;
-        pidIntegral += error;
-        double derivative = error - pidLastError;
-        pidLastError = error;
-        return SHOOTER_PID_KP * error + SHOOTER_PID_KI * pidIntegral + SHOOTER_PID_KD * derivative;
     }
 
     private double getShooterSMCPower(double targetAngularVelocity, double currentAngularVelocity) {
@@ -271,21 +272,6 @@ public class Shooter {
             }
         }
         return null;
-    }
-
-    public double getAngularVelocity() {
-        int currentEncoderPosition = shooter.getCurrentPosition();
-        double currentTime = timer.milliseconds();
-        double deltaTime = (currentTime - lastTime) / 1000.0;
-        double angularVelocity = 0.0;
-        if (deltaTime > shooterMinCheckSecond) {
-            double ticksPerSecond = (currentEncoderPosition - lastEncoderPosition) / deltaTime;
-            angularVelocity = (ticksPerSecond / TICKS_PER_REVOLUTION) * 2 * Math.PI;
-            lastEncoderPosition = currentEncoderPosition;
-            lastTime = currentTime;
-            lastAngularVelocity = angularVelocity;
-        }
-        return lastAngularVelocity;
     }
 
     public double getShootVelocity() {

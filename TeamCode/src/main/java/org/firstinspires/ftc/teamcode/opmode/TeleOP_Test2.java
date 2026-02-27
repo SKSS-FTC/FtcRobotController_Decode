@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.opmode;
 
 import android.util.Size;
 
-import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -14,17 +13,18 @@ import org.firstinspires.ftc.teamcode.subsystem.DriveTrain;
 import org.firstinspires.ftc.teamcode.subsystem.Intake;
 import org.firstinspires.ftc.teamcode.subsystem.Localizer;
 import org.firstinspires.ftc.teamcode.subsystem.Shooter;
+import org.firstinspires.ftc.teamcode.subsystem.Slider;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
-import java.sql.Driver;
 import java.util.List;
 
 import Jama.Matrix;
 
 @TeleOp(name = "ShooterAlgorithmTest2", group = "Tests")
-public class shooterAlgorithmTest2 extends LinearOpMode {
+public class TeleOP_Test2 extends LinearOpMode {
+    private Slider slider;
     private DriveTrain driveTrain;
     private Shooter shooter;
     private Intake intake;
@@ -38,7 +38,8 @@ public class shooterAlgorithmTest2 extends LinearOpMode {
     private static final double MOVING_AVERAGE_WINDOW_SECONDS = 5.0;
 
     @Override
-    public void runOpMode() {
+    public void runOpMode() throws InterruptedException {
+        slider = new Slider(hardwareMap);
         driveTrain = new DriveTrain(hardwareMap);
         shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
         intake = new Intake(hardwareMap);
@@ -76,6 +77,8 @@ public class shooterAlgorithmTest2 extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            driveTrain.setFieldDrive(true);
+            driveTrain.update(gamepad1.left_stick_x, gamepad1.left_stick_y, gamepad1.right_stick_x);
             // Get detections directly - VisionPortal handles frame processing automatically
             List<AprilTagDetection> currentDetections = aprilTagReader.getDetections();
             double frameRateHz = updateFrameRateHz();
@@ -107,39 +110,42 @@ public class shooterAlgorithmTest2 extends LinearOpMode {
                                 hCameraToTag.get(0, 3),
                                 hCameraToTag.get(1, 3),
                                 hCameraToTag.get(2, 3));
-                        double distance = Math.sqrt(Math.pow(hCameraToTag.get(0, 3),2) + Math.pow(hCameraToTag.get(1, 3),2));
+                        double distance = Math.sqrt(Math.pow(hCameraToTag.get(0, 3), 2) + Math.pow(hCameraToTag.get(1, 3), 2));
                         telemetry.addData("distance from cam to tag", distance);
                     }
                 }
             } else {
                 telemetry.addData("Status", "No AprilTags detected");
             }
-
             if (gamepad1.triangle) {
                 shooter.shooterAiming = true;
-            }else if (gamepad1.cross) {
+            } else if (gamepad1.cross) {
                 shooter.shooterAiming = false;
             }
 
-            if(gamepad1.dpad_up){
+            if (gamepad1.dpad_up) {
                 intake.reserve();
-            }else if (gamepad1.dpad_down){
+            } else if (gamepad1.left_trigger > 0) {
                 intake.intake();
-            }else if(gamepad1.right_trigger>0.5){
+            } else if (gamepad1.right_trigger > 0.5) {
                 intake.shoot();
-            }else{
+            } else {
                 intake.stop();
             }
-            intake.update();
-            telemetry.addData("kicker timer",intake.shootTimer.milliseconds());
-            telemetry.addData("angular velocity",shooter.getShootVelocity());
-
-            shooter.update(STARTING_POSE,0);
-
-            telemetry.update();
-            sleep(20);
+            if (gamepad1.dpad_left && gamepad1.b) {
+                slider.park();
+            } else {
+                slider.drive();
+            }
         }
+        intake.update();
+        telemetry.addData("kicker timer", intake.shootTimer.milliseconds());
+        telemetry.addData("angular velocity", shooter.getShootVelocity());
 
+        shooter.update(STARTING_POSE, 0);
+
+        telemetry.update();
+        sleep(20);
         // Cleanup
         if (visionPortal != null) {
             visionPortal.close();

@@ -884,7 +884,6 @@ class HeadingTuner extends OpMode {
 class DriveTuner extends OpMode {
     public static double DISTANCE = 40;
     private boolean forward = true;
-
     private PathChain forwards;
     private PathChain backwards;
 

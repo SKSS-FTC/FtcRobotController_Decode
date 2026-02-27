@@ -59,11 +59,9 @@ public class shooterAlgorithmTest1 extends LinearOpMode {
 
             telemetryM.debug("Shooter Aiming: " + shooter.shooterAiming);
             telemetryM.debug("Alliance: " + shooter.getAlliance().toString());
-            telemetryM.debug("Angular Velocity (rad/s): " + shooter.getAngularVelocity());
             telemetryM.debug("Shoot Velocity (rad/s): " + shooter.getShootVelocity());
             telemetryM.debug("distacne",shooter.getDistanceToTarget());
             telemetryM.debug("pose",localizer.getPose());
-            telemetryM.debug("Shooter reading - cal " + (shooter.getShootVelocity() - shooter.getAngularVelocity()));
             telemetryM.debug("Logging: " + (shooter.isLogging() ? "YES (" + shooter.getDataPointCount() + " pts)" : "NO"));
             if (!shooter.isLogging() && shooter.getLastLogFilePath() != null) {
                 telemetryM.debug("Last Log: " + shooter.getLastLogFilePath());

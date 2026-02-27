@@ -12,7 +12,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class Intake {
     private DcMotor intake;
     private Servo kicker;
-    private ElapsedTime shootTimer;
+    public ElapsedTime shootTimer;
     private int shootState = 0;
     public static final double SHOOT_DELAY_MS = 150;
 

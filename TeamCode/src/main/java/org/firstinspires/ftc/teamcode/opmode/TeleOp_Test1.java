@@ -27,7 +27,6 @@ public class TeleOp_Test1 extends LinearOpMode {
                 intake.intake();
             } else {
                 intake.stop();
-            }
-        }
+            }}
     }
 }
