@@ -66,17 +66,24 @@ public class ExampleTransformationOdometry extends LinearOpMode {
             transformation.initialize();
 
             // Register AprilTag positions in map frame (4x4 homogeneous matrices)
-            transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.BLUE_GOAL_TAG_MAP_FRAME.inverse());
-            transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.RED_GOAL_TAG_MAP_FRAME.inverse());
+            transformation.registerAprilTag(Constants.BLUE_GOAL_TAG_ID, Constants.BLUE_GOAL_TAG_MAP_FRAME);
+            transformation.registerAprilTag(Constants.RED_GOAL_TAG_ID, Constants.RED_GOAL_TAG_MAP_FRAME);
 
             // Sanity-check: print tag positions in map frame (should all be positive)
             // Map origin = bottom-left corner (0,0). Field = 3.658m x 3.658m.
             Matrix t20 = Constants.BLUE_GOAL_TAG_MAP_FRAME;
             Matrix t24 = Constants.RED_GOAL_TAG_MAP_FRAME;
-            telemetry.addData("Tag 20 map pos",
-                "X:%.3f Y:%.3f Z:%.3f", t20.get(0,3), t20.get(1,3), t20.get(2,3));
+            // telemetry.addData("Tag 20 map pos",
+            //     "X:%.3f Y:%.3f Z:%.3f", t20.get(0,3), t20.get(1,3), t20.get(2,3));
             telemetry.addData("Tag 24 map pos",
                 "X:%.3f Y:%.3f Z:%.3f", t24.get(0,3), t24.get(1,3), t24.get(2,3));
+            telemetry.addData("Tag 24 map rot (deg)",
+                "R:%.1f P:%.1f Y:%.1f",
+                Math.toDegrees(Math.atan2(-t24.get(0,2), t24.get(0,0))), // roll
+                Math.toDegrees(Math.atan2(-t24.get(1,2), t24.get(1,1))), // pitch
+                Math.toDegrees(Math.atan2(-t24.get(0,1), t24.get(0,0)))  // yaw
+            );
+            
             telemetry.addData("Status", "Ready - press PLAY");
             telemetry.update();
         } catch (Throwable t) {
@@ -116,38 +123,24 @@ public class ExampleTransformationOdometry extends LinearOpMode {
                             continue;
                         }
 
-                        // Print RPY of the apriltag, convert the rotation matrix to RPY for easier interpretation
-                        telemetry.addData(String.format("Tag %d Tag->Camera Rot [deg]", tagId),
-                            "R: %.1f  P: %.1f  Y: %.1f",
-                            Math.toDegrees(Math.atan2(H_camera_to_tag.get(2, 1), H_camera_to_tag.get(2, 2))), // roll
-                            Math.toDegrees(Math.atan2(-H_camera_to_tag.get(2, 0), Math.sqrt(H_camera_to_tag.get(2, 1)*H_camera_to_tag.get(2, 1) + H_camera_to_tag.get(2, 2)*H_camera_to_tag.get(2, 2)))), // pitch
-                            Math.toDegrees(Math.atan2(H_camera_to_tag.get(1, 0), H_camera_to_tag.get(0, 0))) // yaw
-                        );
+                        telemetry.addData(String.format("Camera to Tag %d", tagId),
+                            "X: %.3f  Y: %.3f  Z: %.3f m",
+                            H_camera_to_tag.get(0, 3),
+                            H_camera_to_tag.get(1, 3),
+                            H_camera_to_tag.get(2, 3));
 
                         double[] t = pose.translation;
                         double[][] R = pose.rotationMatrix;
                         double[] rpy = pose.getRPY(); // {roll, pitch, yaw} radians
 
-                        // Position of robot base in map frame
-                        telemetry.addData(String.format("Tag %d Base Pos [m]", tagId),
-                            "X: %.3f  Y: %.3f  Z: %.3f", t[0], t[1], t[2]);
-
-                        // Orientation of robot base in map frame (ZYX Euler)
-                        telemetry.addData(String.format("Tag %d Base RPY [deg]", tagId),
-                            "R: %.1f  P: %.1f  Y: %.1f",
+                        telemetry.addData(String.format("Robot Pose from Tag %d", tagId),
+                            "X: %.3f  Y: %.3f  Z: %.3f m",
+                            t[0], t[1], t[2]);
+                        telemetry.addData(String.format("Robot RPY from Tag %d", tagId),
+                            "R: %.1f  P: %.1f  Y: %.1f deg",
                             Math.toDegrees(rpy[0]),
                             Math.toDegrees(rpy[1]),
-                            Math.toDegrees(rpy[2]));
-
-                        // Full 4x4 H_baseToMap transformation matrix
-                        telemetry.addData(String.format("Tag %d H_base->map r0", tagId),
-                            "[%.3f, %.3f, %.3f | %.3f]", R[0][0], R[0][1], R[0][2], t[0]);
-                        telemetry.addData(String.format("Tag %d H_base->map r1", tagId),
-                            "[%.3f, %.3f, %.3f | %.3f]", R[1][0], R[1][1], R[1][2], t[1]);
-                        telemetry.addData(String.format("Tag %d H_base->map r2", tagId),
-                            "[%.3f, %.3f, %.3f | %.3f]", R[2][0], R[2][1], R[2][2], t[2]);
-                        telemetry.addData(String.format("Tag %d H_base->map r3", tagId),
-                            "[ 0.000,  0.000,  0.000 |  1.000]");
+                            Math.toDegrees(rpy[2]));   
                     }
                 }
 

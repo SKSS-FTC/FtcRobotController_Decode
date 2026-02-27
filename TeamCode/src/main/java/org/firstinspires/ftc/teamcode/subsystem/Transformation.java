@@ -87,8 +87,8 @@ public class Transformation {
         });
 
 //        Matrix H_baseToMap = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap);
-        Matrix H_baseToMap = (H_cameraToTag).times(H_tagToMap);
-        return extractRotationAndTranslation(H_baseToMap);
+        Matrix H_mapToBase = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap).inverse();
+        return extractRotationAndTranslation(H_mapToBase);
     }
 
     public static RobotPose getRobotPoseInMapFromMultipleTags(List<TagDetection> tagDetections) {
@@ -146,29 +146,7 @@ public class Transformation {
             throw new IllegalArgumentException("Matrix must be 4x4 homogeneous transformation matrix");
         }
 
-        double[][] R = H.getMatrix(0, 2, 0, 2).getArrayCopy();
-        double[] t = new double[3];
-        for (int i = 0; i < 3; i++) {
-            t[i] = H.get(i, 3);
-        }
-
-        Matrix R_inv = new Matrix(R).transpose();
-        Matrix t_vec = new Matrix(t, 3);
-        Matrix t_inv = R_inv.times(t_vec).uminus();
-
-        Matrix H_inv = new Matrix(4, 4);
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                H_inv.set(i, j, R_inv.get(i, j));
-            }
-            H_inv.set(i, 3, t_inv.get(i, 0));
-        }
-        H_inv.set(3, 0, 0);
-        H_inv.set(3, 1, 0);
-        H_inv.set(3, 2, 0);
-        H_inv.set(3, 3, 1);
-
-        return H_inv;
+        return H.inverse();
     }
 
     public static RobotPose extractRotationAndTranslation(Matrix H) {

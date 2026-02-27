@@ -77,19 +77,6 @@ public class ExampleAprilTagReader extends LinearOpMode {
                     if (detection.ftcPose != null) {
                         telemetry.addData("Tag ID", detection.id);
 
-                        Matrix hTagToCamera = aprilTagReader.getTagToCameraMatrix(detection.id);
-//                        telemetry.addData("Tag->Camera T (m)",
-//                                "x=%.3f, y=%.3f, z=%.3f",
-//                                hTagToCamera.get(0, 3),
-//                                hTagToCamera.get(1, 3),
-//                                hTagToCamera.get(2, 3));
-//                        telemetry.addData("Tag->Camera R (deg)",
-//                                "roll=%.1f, pitch=%.1f, yaw=%.1f",
-//                                Math.toDegrees(Math.atan2(hTagToCamera.get(2, 1), hTagToCamera.get(2, 2))),
-//                                Math.toDegrees(Math.atan2(-hTagToCamera.get(2, 0),
-//                                        Math.sqrt(Math.pow(hTagToCamera.get(2, 1), 2) + Math.pow(hTagToCamera.get(2, 2), 2)))),
-//                                Math.toDegrees(Math.atan2(hTagToCamera.get(1, 0), hTagToCamera.get(0, 1))));
-
                         Matrix hCameraToTag = aprilTagReader.getCameraToTagMatrix(detection.id);
                         telemetry.addData("Camera->Tag T (m)",
                                 "x=%.3f, y=%.3f, z=%.3f",
