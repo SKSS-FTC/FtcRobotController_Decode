@@ -4,6 +4,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.HeadingInterpolator;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -71,16 +72,40 @@ public class BluePath {
 
         NearGet_Ball1 = follower.pathBuilder()
                 .addPath(new BezierCurve(NearShootPose, NearPickUp1_start, NearPickUp1_final))
-                .setLinearHeadingInterpolation(NearShootPose.getHeading(), NearPickUp1_final.getHeading())
                 .build();
+
+        NearGet_Ball1.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(NearShootPose.getHeading(),NearPickUp1_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(NearPickUp1_final.getHeading()))
+                )
+        );
         NearShoot_Ball1 = follower.pathBuilder()
                 .addPath(new BezierLine(NearPickUp1_final, NearShootPose))
                 .setLinearHeadingInterpolation(NearPickUp1_final.getHeading(), NearShootPose.getHeading())
                 .build();
         FarGet_Ball1 = follower.pathBuilder()
                 .addPath(new BezierCurve(FarShootPose, FarPickUp1_start, FarPickUp1_final, GatePose))
-                .setLinearHeadingInterpolation(FarShootPose.getHeading(), FarPickUp1_final.getHeading())
                 .build();
+
+        FarGet_Ball1.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(FarShootPose.getHeading(),FarPickUp1_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(FarPickUp1_final.getHeading()))
+                )
+        );
         FarShoot_Ball1 = follower.pathBuilder()
                 .addPath(new BezierLine(FarPickUp1_final, FarShootPose))
                 .setLinearHeadingInterpolation(FarPickUp1_final.getHeading(), FarShootPose.getHeading())

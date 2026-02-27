@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 
 import android.sax.EndElementListener;
 
+import com.pedropathing.control.FilteredPIDFCoefficients;
 import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.FollowerConstants;
@@ -24,8 +25,8 @@ public class Constants {
             .forwardZeroPowerAcceleration(-44.910910455757914)
             .lateralZeroPowerAcceleration(-67.5)
             .translationalPIDFCoefficients(new PIDFCoefficients(0.08,0,0.02,0))
-            .headingPIDFCoefficients(new PIDFCoefficients(0.9, 0, 0.2, 0));
-
+            .headingPIDFCoefficients(new PIDFCoefficients(0.9, 0, 0.2, 0))
+            .drivePIDFCoefficients(new FilteredPIDFCoefficients(0.01, 0, 0.002,0.6,0.01));
     public static PathConstraints pathConstraints = new PathConstraints(0.99,   100, 1, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
@@ -61,7 +62,7 @@ public class Constants {
             .strafeEncoder_HardwareMapName("leftDown")
             .leftEncoderDirection(Encoder.REVERSE)
             .rightEncoderDirection(Encoder.FORWARD)
-            .strafeEncoderDirection(Encoder.REVERSE);
+            .strafeEncoderDirection(Encoder.FORWARD);
 //            .IMU_HardwareMapName("imu")
 //            .IMU_Orientation(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
 
