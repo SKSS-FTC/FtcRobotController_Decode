@@ -87,7 +87,7 @@ public class Transformation {
         });
 
 //        Matrix H_baseToMap = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap);
-        Matrix H_mapToBase = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap).inverse();
+        Matrix H_mapToBase = ((H_baseToCamera.times(H_cameraToTag)).times(H_tagToMap)).inverse();
         return extractRotationAndTranslation(H_mapToBase);
     }
 
