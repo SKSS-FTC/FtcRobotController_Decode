@@ -83,7 +83,7 @@ public class Shooter {
         shooter = hardwareMap.get(DcMotorEx.class, "shoot");
         angleTuner = hardwareMap.get(Servo.class, "angleTuner");
 
-        rotate.setDirection(DcMotorSimple.Direction.FORWARD);
+        rotate.setDirection(DcMotorSimple.Direction.REVERSE);
         shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         angleTuner.setDirection(Servo.Direction.FORWARD);
 
@@ -290,5 +290,12 @@ public class Shooter {
 
     public double getShootVelocity() {
         return shooter.getVelocity() / TICKS_PER_REVOLUTION * 2 * Math.PI;
+    }
+    public double getDistanceToTarget(){
+        if(relativeShootingVector == null){
+            return -1;
+        }else{
+            return Math.sqrt(Math.pow(relativeShootingVector.getX(),2) + Math.pow(relativeShootingVector.getY(),2));
+        }
     }
 }

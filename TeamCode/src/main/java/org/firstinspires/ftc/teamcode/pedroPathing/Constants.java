@@ -16,12 +16,16 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import javax.crypto.EncryptedPrivateKeyInfo;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(12)
+            .mass(10.3)
+            .forwardZeroPowerAcceleration(-44.910910455757914)
+            .lateralZeroPowerAcceleration(-67.5)
             .translationalPIDFCoefficients(new PIDFCoefficients(0.08,0,0.02,0))
             .headingPIDFCoefficients(new PIDFCoefficients(0.9, 0, 0.2, 0));
+
     public static PathConstraints pathConstraints = new PathConstraints(0.99,   100, 1, 1);
 
     public static Follower createFollower(HardwareMap hardwareMap) {
@@ -41,7 +45,10 @@ public class Constants {
             .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD);
+            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .xVelocity(64.33193061013424)
+            .yVelocity(43.10102889601258);
+    //91.0811315460462
     public static ThreeWheelConstants localizerConstants = new ThreeWheelConstants()
             .forwardTicksToInches(0.0029299753744086066)
             .strafeTicksToInches(0.00318307432688396)

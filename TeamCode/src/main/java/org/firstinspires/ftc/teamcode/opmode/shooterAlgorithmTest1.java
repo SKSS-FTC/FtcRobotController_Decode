@@ -6,17 +6,25 @@ import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.teamcode.subsystem.Localizer;
 import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 
 @TeleOp(name = "ShooterAlgorithmTest1", group = "Tests")
 public class shooterAlgorithmTest1 extends LinearOpMode {
     private Shooter shooter;
     private TelemetryManager telemetryM;
+    private Localizer localizer;
     private boolean wasLogging = false;
+    private Pose STARTING_POSE = new Pose(0,0,0);
 
     @Override
     public void runOpMode() {
         shooter = new Shooter(hardwareMap, Shooter.Alliance.BLUE);
+        localizer = new Localizer.Builder()
+                .webcamName("Webcam 1")
+                .startingPose(STARTING_POSE)
+                .build();
+        localizer.init(hardwareMap, "Webcam 1");
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
 
         telemetry.addLine("Status: Initialized");
@@ -46,13 +54,15 @@ public class shooterAlgorithmTest1 extends LinearOpMode {
                 shooter.stopLoggingAndSave();
                 wasLogging = false;
             }
-
-            shooter.update(new Pose(0, 0), 120);
+            localizer.update();
+            shooter.update(localizer.getPose(),localizer.getHeading());
 
             telemetryM.debug("Shooter Aiming: " + shooter.shooterAiming);
             telemetryM.debug("Alliance: " + shooter.getAlliance().toString());
             telemetryM.debug("Angular Velocity (rad/s): " + shooter.getAngularVelocity());
             telemetryM.debug("Shoot Velocity (rad/s): " + shooter.getShootVelocity());
+            telemetryM.debug("distacne",shooter.getDistanceToTarget());
+            telemetryM.debug("pose",localizer.getPose());
             telemetryM.debug("Shooter reading - cal " + (shooter.getShootVelocity() - shooter.getAngularVelocity()));
             telemetryM.debug("Logging: " + (shooter.isLogging() ? "YES (" + shooter.getDataPointCount() + " pts)" : "NO"));
             if (!shooter.isLogging() && shooter.getLastLogFilePath() != null) {

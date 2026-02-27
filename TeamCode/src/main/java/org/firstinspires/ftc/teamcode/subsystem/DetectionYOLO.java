@@ -11,6 +11,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.Size;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.tensorflow.lite.DataType;
@@ -38,9 +39,11 @@ import java.util.List;
 
 import java.util.Locale;
 
+@Config
 public class DetectionYOLO {
 
     private static final float DEFAULT_CONFIDENCE_THRESHOLD = 0.25f;
+    public static float SQUARE_TOLERANCE = 3f;
 
     private static final String[] COCO_CLASSES = {
             "green_ball","purple_ball"
@@ -99,6 +102,27 @@ public class DetectionYOLO {
         }
     }
 
+    public static class Coordinate {
+        public final double x;
+        public final double y;
+        public final double z;
+
+        public Coordinate(double x, double y, double z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+
+        public double getDistance() {
+            return Math.sqrt(x * x + y * y + z * z);
+        }
+
+        @Override
+        public String toString() {
+            return String.format(Locale.US, "(%.3f, %.3f, %.3f)", x, y, z);
+        }
+    }
+
     public static class DetectionResult {
         public final String tag;
         public final double confidence;
@@ -109,10 +133,12 @@ public class DetectionYOLO {
         public final double estimatedDistance;
         public final double x;
         public final double y;
+        public final Coordinate worldCoordinate;
+        public final double horizontalAngle;
 
         public DetectionResult(String tag, double confidence, double pixelWidth, double pixelHeight,
                                double normalizedWidth, double normalizedHeight, double estimatedDistance,
-                               double x, double y) {
+                               double x, double y, Coordinate worldCoordinate, double horizontalAngle) {
             this.tag = tag;
             this.confidence = confidence;
             this.pixelWidth = pixelWidth;
@@ -122,6 +148,8 @@ public class DetectionYOLO {
             this.estimatedDistance = estimatedDistance;
             this.x = x;
             this.y = y;
+            this.worldCoordinate = worldCoordinate;
+            this.horizontalAngle = horizontalAngle;
         }
     }
 
@@ -272,24 +300,145 @@ public class DetectionYOLO {
         List<Detection> detections = getLastDetectionsSnapshot();
 
         for (Detection d : detections) {
-            double pixelWidth = d.width * frameWidth;
-            double pixelHeight = d.height * frameHeight;
-            double distance = calculateDistance(pixelWidth);
+            if (!isBoundingBoxSquare(d.width, d.height)) {
+                continue;
+            }
 
-            results.add(new DetectionResult(
-                    d.className,
-                    d.confidence,
-                    pixelWidth,
-                    pixelHeight,
-                    d.width,
-                    d.height,
-                    distance,
-                    d.x,
-                    d.y
-            ));
+            double distance = getDistanceToDetection(d);
+            results.add(createDetectionResult(d, distance));
         }
 
         return results;
+    }
+
+    public List<DetectionResult> getAllDetectionResultsNoFilter() {
+        List<DetectionResult> results = new ArrayList<>();
+
+        if (!isInitialized()) {
+            return results;
+        }
+
+        List<Detection> detections = getLastDetectionsSnapshot();
+
+        for (Detection d : detections) {
+            double distance = getDistanceToDetection(d);
+            results.add(createDetectionResult(d, distance));
+        }
+
+        return results;
+    }
+
+    public List<Detection> getRejectedDetections() {
+        List<Detection> rejected = new ArrayList<>();
+        List<Detection> detections = getLastDetectionsSnapshot();
+
+        for (Detection d : detections) {
+            if (!isBoundingBoxSquare(d.width, d.height)) {
+                rejected.add(d);
+            }
+        }
+
+        return rejected;
+    }
+
+    public boolean isBoundingBoxSquare(float normalizedWidth, float normalizedHeight) {
+        if (normalizedWidth <= 0 || normalizedHeight <= 0) {
+            return false;
+        }
+        float ratio = normalizedWidth / normalizedHeight;
+        return ratio >= (1.0f - SQUARE_TOLERANCE) && ratio <= (1.0f + SQUARE_TOLERANCE);
+    }
+
+    public double getDistanceToDetection(Detection detection) {
+        if (detection == null || detection.width <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double pixelWidth = detection.width * frameWidth;
+        return getDistanceFromPixelWidth(pixelWidth);
+    }
+
+    public double getDistanceFromPixelWidth(double pixelWidth) {
+        if (pixelWidth <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return (Constants.KNOWN_OBJECT_WIDTH * Constants.CAMERA_FOCAL_LENGTH) / pixelWidth;
+    }
+
+    public Coordinate calculateWorldCoordinate(Detection detection) {
+        if (detection == null) {
+            return new Coordinate(0, 0, 0);
+        }
+        return calculateWorldCoordinate(detection.x, detection.y, detection.width, detection.height);
+    }
+
+    public Coordinate calculateWorldCoordinate(double normalizedX, double normalizedY,
+                                                double normalizedWidth, double normalizedHeight) {
+        double centerX = normalizedX + normalizedWidth / 2.0;
+        double centerY = normalizedY + normalizedHeight / 2.0;
+
+        double pixelCenterX = centerX * frameWidth;
+        double pixelCenterY = centerY * frameHeight;
+
+        double pixelOffsetX = pixelCenterX - (frameWidth / 2.0);
+        double pixelOffsetY = pixelCenterY - (frameHeight / 2.0);
+
+        double horizontalAngle = Math.atan2(pixelOffsetX, Constants.CAMERA_FOCAL_LENGTH);
+        double verticalAngle = Math.atan2(pixelOffsetY, Constants.CAMERA_FOCAL_LENGTH);
+
+        double distance = getDistanceFromPixelWidth(normalizedWidth * frameWidth);
+        if (Double.isInfinite(distance) || distance <= 0) {
+            return new Coordinate(0, 0, 0);
+        }
+
+        double adjustedElevation = Constants.cameraAngleOfElevation * Math.PI - verticalAngle;
+
+        double groundDistance = distance * Math.cos(adjustedElevation);
+        double worldX = distance * Math.sin(horizontalAngle);
+        double worldY = groundDistance * Math.cos(horizontalAngle);
+        double worldZ = distance * Math.sin(adjustedElevation);
+
+        return new Coordinate(worldX, worldY, worldZ);
+    }
+
+    public double calculateHorizontalAngle(Detection detection) {
+        if (detection == null) {
+            return 0;
+        }
+        double centerX = detection.x + detection.width / 2.0;
+        double pixelCenterX = centerX * frameWidth;
+        double pixelOffsetX = pixelCenterX - (frameWidth / 2.0);
+        return Math.atan2(pixelOffsetX, Constants.CAMERA_FOCAL_LENGTH);
+    }
+
+    public double calculateVerticalAngle(Detection detection) {
+        if (detection == null) {
+            return 0;
+        }
+        double centerY = detection.y + detection.height / 2.0;
+        double pixelCenterY = centerY * frameHeight;
+        double pixelOffsetY = pixelCenterY - (frameHeight / 2.0);
+        return Math.atan2(pixelOffsetY, Constants.CAMERA_FOCAL_LENGTH);
+    }
+
+    private DetectionResult createDetectionResult(Detection d, double distance) {
+        double pixelWidth = d.width * frameWidth;
+        double pixelHeight = d.height * frameHeight;
+        Coordinate coord = calculateWorldCoordinate(d);
+        double horizontalAngle = calculateHorizontalAngle(d);
+
+        return new DetectionResult(
+                d.className,
+                d.confidence,
+                pixelWidth,
+                pixelHeight,
+                d.width,
+                d.height,
+                distance,
+                d.x,
+                d.y,
+                coord,
+                horizontalAngle
+        );
     }
 
     public DetectionResult getBestDetectionResult() {
@@ -329,10 +478,51 @@ public class DetectionYOLO {
     }
 
     public double calculateDistance(double pixelWidth) {
-        if (pixelWidth <= 0) {
-            return Double.POSITIVE_INFINITY;
+        return getDistanceFromPixelWidth(pixelWidth);
+    }
+
+    public Double getDistanceToGreenBall() {
+        List<DetectionResult> results = getDetectionResultsByTag("green_ball");
+        if (results.isEmpty()) {
+            return null;
         }
-        return (Constants.KNOWN_OBJECT_WIDTH * Constants.CAMERA_FOCAL_LENGTH) / pixelWidth;
+        return results.get(0).estimatedDistance;
+    }
+
+    public Double getDistanceToPurpleBall() {
+        List<DetectionResult> results = getDetectionResultsByTag("purple_ball");
+        if (results.isEmpty()) {
+            return null;
+        }
+        return results.get(0).estimatedDistance;
+    }
+
+    public DetectionResult getBestGreenBallDetection() {
+        List<DetectionResult> results = getDetectionResultsByTag("green_ball");
+        if (results.isEmpty()) {
+            return null;
+        }
+        DetectionResult best = results.get(0);
+        for (DetectionResult d : results) {
+            if (d.confidence > best.confidence) {
+                best = d;
+            }
+        }
+        return best;
+    }
+
+    public DetectionResult getBestPurpleBallDetection() {
+        List<DetectionResult> results = getDetectionResultsByTag("purple_ball");
+        if (results.isEmpty()) {
+            return null;
+        }
+        DetectionResult best = results.get(0);
+        for (DetectionResult d : results) {
+            if (d.confidence > best.confidence) {
+                best = d;
+            }
+        }
+        return best;
     }
 
     public double calculateFocalLength(double actualDistance, double pixelWidth) {
@@ -678,6 +868,8 @@ public class DetectionYOLO {
     private class YoloVisionProcessor implements VisionProcessor {
         private final Paint boxPaint = new Paint();
         private final Paint textPaint = new Paint();
+        private final Paint bgPaint = new Paint();
+        private final Paint rejectedPaint = new Paint();
         private int processorFrameWidth = 1;
         private int processorFrameHeight = 1;
 
@@ -688,9 +880,17 @@ public class DetectionYOLO {
             boxPaint.setStrokeWidth(3f);
             boxPaint.setAntiAlias(true);
 
+            rejectedPaint.setColor(Color.RED);
+            rejectedPaint.setStyle(Paint.Style.STROKE);
+            rejectedPaint.setStrokeWidth(2f);
+            rejectedPaint.setAntiAlias(true);
+
             textPaint.setColor(Color.WHITE);
             textPaint.setTextSize(24f);
             textPaint.setAntiAlias(true);
+
+            bgPaint.setColor(Color.argb(180, 0, 0, 0));
+            bgPaint.setStyle(Paint.Style.FILL);
         }
 
         @Override
@@ -722,7 +922,8 @@ public class DetectionYOLO {
             if (snapshot.isEmpty()) return;
 
             boxPaint.setStrokeWidth(3f * scaleCanvasDensity);
-            textPaint.setTextSize(20f * scaleCanvasDensity);
+            rejectedPaint.setStrokeWidth(2f * scaleCanvasDensity);
+            textPaint.setTextSize(16f * scaleCanvasDensity);
 
             float scale = Math.min(onscreenWidth / (float) processorFrameWidth, onscreenHeight / (float) processorFrameHeight);
             float padX = (onscreenWidth - processorFrameWidth * scale) / 2f;
@@ -735,11 +936,49 @@ public class DetectionYOLO {
                 float bottom = padY + (d.y + d.height) * processorFrameHeight * scale;
 
                 RectF box = new RectF(left, top, right, bottom);
-                canvas.drawRect(box, boxPaint);
 
-                String label = String.format(Locale.US, "%s %.1f%% @ %.4f,%.4f,%.4f,%.4f",
-                        d.className, d.confidence * 100f, d.x, d.y, d.width, d.height);
-                canvas.drawText(label, left + 6f, top + 22f * scaleCanvasDensity, textPaint);
+                boolean isSquare = isBoundingBoxSquare(d.width, d.height);
+
+                if (isSquare) {
+                    canvas.drawRect(box, boxPaint);
+
+                    double distance = getDistanceToDetection(d);
+                    Coordinate coord = calculateWorldCoordinate(d);
+                    double angleDeg = Math.toDegrees(calculateHorizontalAngle(d));
+
+                    String line1 = String.format(Locale.US, "%s %.0f%%", d.className, d.confidence * 100f);
+                    String line2 = String.format(Locale.US, "dist: %.2fm", distance);
+                    String line3 = String.format(Locale.US, "pos: (%.2f, %.2f, %.2f)", coord.x, coord.y, coord.z);
+                    String line4 = String.format(Locale.US, "angle: %.1fdeg", angleDeg);
+
+                    float textHeight = 18f * scaleCanvasDensity;
+                    float bgPadding = 4f * scaleCanvasDensity;
+                    float bgLeft = left + 4f * scaleCanvasDensity;
+                    float bgTop = top + 4f * scaleCanvasDensity;
+                    float bgRight = bgLeft + 160f * scaleCanvasDensity;
+                    float bgBottom = bgTop + textHeight * 4 + bgPadding * 2;
+
+                    canvas.drawRect(bgLeft, bgTop, bgRight, bgBottom, bgPaint);
+
+                    float textX = bgLeft + bgPadding;
+                    float textY = bgTop + textHeight + bgPadding;
+                    canvas.drawText(line1, textX, textY, textPaint);
+                    canvas.drawText(line2, textX, textY + textHeight, textPaint);
+                    canvas.drawText(line3, textX, textY + textHeight * 2, textPaint);
+                    canvas.drawText(line4, textX, textY + textHeight * 3, textPaint);
+                } else {
+                    canvas.drawRect(box, rejectedPaint);
+                    String label = String.format(Locale.US, "%s (non-square)", d.className);
+                    float textHeight = 18f * scaleCanvasDensity;
+                    float bgPadding = 4f * scaleCanvasDensity;
+                    float bgLeft = left + 4f * scaleCanvasDensity;
+                    float bgTop = top + 4f * scaleCanvasDensity;
+                    float bgRight = bgLeft + 120f * scaleCanvasDensity;
+                    float bgBottom = bgTop + textHeight + bgPadding * 2;
+
+                    canvas.drawRect(bgLeft, bgTop, bgRight, bgBottom, bgPaint);
+                    canvas.drawText(label, bgLeft + bgPadding, bgTop + textHeight, textPaint);
+                }
             }
         }
     }

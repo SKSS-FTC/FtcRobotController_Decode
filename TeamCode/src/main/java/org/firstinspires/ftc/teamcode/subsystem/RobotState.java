@@ -17,6 +17,6 @@ public class RobotState {
     /**
      * Shooter encoder calibration constant
      */
-    public static int shooterEncoder = 10000;
+    public static int shooterEncoder = 1780;
     public static double ShooterAngleRobot = 0;
 }
