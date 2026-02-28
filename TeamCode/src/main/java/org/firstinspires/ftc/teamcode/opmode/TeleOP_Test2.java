@@ -86,6 +86,7 @@ public class TeleOP_Test2 extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            shooter.shooterAiming = true;
             localizer.update();
             driveTrain.setFieldDrive(true);
             driveTrain.update(gamepad1.left_stick_x, gamepad1.left_stick_y, gamepad1.right_stick_x);
@@ -128,17 +129,23 @@ public class TeleOP_Test2 extends LinearOpMode {
                 telemetry.addData("Status", "No AprilTags detected");
             }
             if (gamepad1.triangle) {
-                shooter.shooterAiming = true;
+                shooter.shooterRotate = true;
             } else if (gamepad1.cross) {
-                shooter.shooterAiming = false;
+                shooter.shooterRotate = false;
             }
 
             if (gamepad1.dpad_up) {
                 intake.reserve();
             } else if (gamepad1.left_trigger > 0) {
                 intake.intake();
+                shooter.closeGate();
             } else if (gamepad1.right_trigger > 0.5) {
-                intake.shoot();
+                if (shooter.getGateClosed()) {
+                    intake.intake();
+                    intake.shoot();
+                }else {
+                    shooter.openGate();
+                }
             } else {
                 intake.stop();
             }
