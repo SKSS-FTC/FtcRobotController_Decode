@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 import org.firstinspires.ftc.teamcode.subsystem.path.RedPath;
+import org.firstinspires.ftc.teamcode.subsystem.Intake;
 
 @Autonomous(name = "AutoPathing_RedNear")
 public class Auto_RedNear extends LinearOpMode {
@@ -15,6 +16,7 @@ public class Auto_RedNear extends LinearOpMode {
     private boolean setPath = false;
     private Shooter shooter;
     private RedPath redPath;
+    private Intake intake;
     private enum NearPathState {none,NearScorePreload,NearGet_Ball1, NearShoot_Ball1, NearGet_Ball2, NearShoot_Ball2, NearGet_Ball3, NearShoot_Ball3, NearEndPath, finish};
     private NearPathState currentNearPathState = NearPathState.none;
     boolean OpmodeTimer = false;
@@ -22,26 +24,18 @@ public class Auto_RedNear extends LinearOpMode {
 
     private void determinePath(int currentPath) {
         if (opmodeTimer.getElapsedTime() >= 25000) {
-            currentNearPathState = NearPathState.NearEndPath;
-        if (currentPath == 0) {
-            if (PathGrabShoot1) {
-                currentNearPathState = NearPathState.NearGet_Ball1;
-            }
-            }
+            currentNearPathState = Auto_RedFar.NearPathState.NearEndPath;
         }
-        if (currentPath <= 1) {
+        if (currentPath == 0 && PathGrabShoot1) {
+            currentNearPathState = Auto_RedFar.NearPathState.NearGet_Ball1;
+        } else if (currentPath <= 1 && PathGrabShoot2) {
             //finish path 1
-            if (PathGrabShoot2) {
-                currentNearPathState = NearPathState.NearGet_Ball2;
-            }
+            currentNearPathState = Auto_RedFar.NearPathState.NearGet_Ball2;
+        }else if (currentPath <= 2 && PathGrabShoot3) {
+            currentNearPathState = Auto_RedFar.NearPathState.NearShoot_Ball3;
         }
-        if (currentPath <= 2) {
-            if (PathGrabShoot3) {
-                currentNearPathState = NearPathState.NearShoot_Ball3;
-            }
-            else {
-                currentNearPathState = NearPathState.finish;
-            }
+        else {
+            currentFarPathState = Auto_RedFar.FarPathState.FarEndPath;
         }
     }
 
@@ -49,6 +43,7 @@ public class Auto_RedNear extends LinearOpMode {
     public void runOpMode() {
         redPath = new RedPath(hardwareMap);
         shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
+        intake = new Intake(hardwareMap);
         opmodeTimer = new Timer();
         opmodeTimer.resetTimer();
         waitForStart();

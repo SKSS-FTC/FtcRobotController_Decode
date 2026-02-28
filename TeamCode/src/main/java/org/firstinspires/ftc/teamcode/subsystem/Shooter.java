@@ -87,7 +87,7 @@ public class Shooter {
         gate = hardwareMap.get(Servo.class,"shooterGate");
 
 
-        rotate.setDirection(DcMotorSimple.Direction.REVERSE);
+        rotate.setDirection(DcMotorSimple.Direction.FORWARD);
         shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         angleTuner.setDirection(Servo.Direction.FORWARD);
         gate.setDirection(Servo.Direction.FORWARD);

@@ -24,25 +24,18 @@ public class Auto_BlueFar extends LinearOpMode {
 
     private void determinePath(int currentPath) {
         if (opmodeTimer.getElapsedTime() >= 25000) {
-            currentFarPathState = FarPathState.FarEndPath;
-            if (currentPath == 0) {
-                if (PathGrabShoot1) {
-                    currentFarPathState = FarPathState.FarGet_Ball1;
-                }
-            }
+            currentFarPathState = Auto_BlueFar.FarPathState.FarEndPath;
         }
-        if (currentPath <= 1) {
-            if (PathGrabShoot2) {
-                currentFarPathState = FarPathState.FarGet_Ball2;
-            }
+        if (currentPath == 0 && PathGrabShoot1) {
+            currentFarPathState = Auto_BlueFar.FarPathState.FarGet_Ball1;
+        } else if (currentPath <= 1 && PathGrabShoot2) {
+            //finish path 1
+            currentFarPathState = Auto_BlueFar.FarPathState.FarGet_Ball2;
+        }else if (currentPath <= 2 && PathGrabShoot3) {
+            currentFarPathState = Auto_BlueFar.FarPathState.FarShoot_Ball3;
         }
-        if (currentPath <= 2) {
-            if (PathGrabShoot3) {
-                currentFarPathState = FarPathState.FarShoot_Ball3;
-            }
-            else {
-                currentFarPathState = FarPathState.finish;
-            }
+        else {
+            currentFarPathState = Auto_BlueFar.FarPathState.FarEndPath;
         }
     }
 
@@ -55,7 +48,6 @@ public class Auto_BlueFar extends LinearOpMode {
         opmodeTimer.resetTimer();
         waitForStart();
         while (opModeIsActive()) {
-            shooter.shooterAiming = true;
             if (!OpmodeTimer) {
                 opmodeTimer.resetTimer();
                 OpmodeTimer = true;

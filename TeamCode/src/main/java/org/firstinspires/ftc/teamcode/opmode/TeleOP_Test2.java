@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import static org.firstinspires.ftc.teamcode.subsystem.RobotState.currentPose;
+
 import android.util.Size;
 
 import com.bylazar.telemetry.TelemetryManager;
@@ -43,6 +45,13 @@ public class TeleOP_Test2 extends LinearOpMode {
         driveTrain = new DriveTrain(hardwareMap);
         shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
         intake = new Intake(hardwareMap);
+        if(currentPose != null){
+            STARTING_POSE = currentPose;
+        }
+        localizer = new Localizer.Builder()
+                .webcamName("Webcam 1")
+                .startingPose(STARTING_POSE)
+                .build();
         aprilTagReader = new AprilTagReader();
 
         // TODO: Update AprilTag initialization to match current SDK API
@@ -77,6 +86,7 @@ public class TeleOP_Test2 extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            localizer.update();
             driveTrain.setFieldDrive(true);
             driveTrain.update(gamepad1.left_stick_x, gamepad1.left_stick_y, gamepad1.right_stick_x);
             // Get detections directly - VisionPortal handles frame processing automatically
@@ -139,6 +149,7 @@ public class TeleOP_Test2 extends LinearOpMode {
             }
         }
         intake.update();
+        shooter.update(localizer.getPose(),localizer.getHeading());
         telemetry.addData("kicker timer", intake.shootTimer.milliseconds());
         telemetry.addData("angular velocity", shooter.getShootVelocity());
 

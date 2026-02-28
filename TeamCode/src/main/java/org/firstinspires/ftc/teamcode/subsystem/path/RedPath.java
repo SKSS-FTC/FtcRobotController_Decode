@@ -69,8 +69,20 @@ public class RedPath {
 
         NearGet_Ball1 = follower.pathBuilder()
                 .addPath(new BezierCurve(NearShootPose, NearPickUp1_start, NearPickUp1_final))
-                .setLinearHeadingInterpolation(NearShootPose.getHeading(), NearPickUp1_final.getHeading())
                 .build();
+
+        NearGet_Ball1.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(NearShootPose.getHeading(),NearPickUp1_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(NearPickUp1_final.getHeading()))
+                )
+        );
         NearShoot_Ball1 = follower.pathBuilder()
                 .addPath(new BezierLine(NearPickUp1_final, NearShootPose))
                 .setLinearHeadingInterpolation(NearPickUp1_final.getHeading(), NearShootPose.getHeading())
@@ -99,16 +111,40 @@ public class RedPath {
 
         NearGet_Ball2 = follower.pathBuilder()
                 .addPath(new BezierCurve(NearShootPose, NearPickUp2_start, NearPickUp2_final))
-                .setLinearHeadingInterpolation(NearShootPose.getHeading(), NearPickUp2_final.getHeading())
                 .build();
+
+        NearGet_Ball2.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(NearShootPose.getHeading(),NearPickUp2_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(NearPickUp2_final.getHeading()))
+                )
+        );
         NearShoot_Ball2 = follower.pathBuilder()
                 .addPath(new BezierLine(NearPickUp2_final, NearShootPose))
                 .setLinearHeadingInterpolation(NearPickUp2_final.getHeading(), NearShootPose.getHeading())
                 .build();
         FarGet_Ball2 = follower.pathBuilder()
                 .addPath(new BezierCurve(FarShootPose, FarPickUp2_start, FarPickUp2_final, GatePose))
-                .setLinearHeadingInterpolation(FarShootPose.getHeading(), FarPickUp2_final.getHeading())
                 .build();
+
+        FarGet_Ball2.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(FarShootPose.getHeading(),FarPickUp2_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(FarPickUp2_final.getHeading()))
+                )
+        );
         FarShoot_Ball2 = follower.pathBuilder()
                 .addPath(new BezierLine(FarPickUp2_final, FarShootPose))
                 .setLinearHeadingInterpolation(FarPickUp2_final.getHeading(), FarShootPose.getHeading())
@@ -116,16 +152,40 @@ public class RedPath {
 
         NearGet_Ball3 = follower.pathBuilder()
                 .addPath(new BezierCurve(NearShootPose, NearPickUp3_start, NearPickUp3_final))
-                .setLinearHeadingInterpolation(NearShootPose.getHeading(), NearPickUp3_start.getHeading())
                 .build();
+
+        NearGet_Ball3.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(NearShootPose.getHeading(),NearPickUp3_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(NearPickUp3_final.getHeading()))
+                )
+        );
         NearShoot_Ball3 = follower.pathBuilder()
                 .addPath(new BezierLine(NearPickUp3_final, NearShootPose))
                 .setLinearHeadingInterpolation(NearPickUp3_final.getHeading(), NearShootPose.getHeading())
                 .build();
         FarGet_Ball3 = follower.pathBuilder()
                 .addPath(new BezierCurve(FarShootPose, FarPickUp3_start, FarPickUp3_final))
-                .setLinearHeadingInterpolation(FarShootPose.getHeading(), FarPickUp3_final.getHeading())
                 .build();
+
+        FarGet_Ball3.setHeadingInterpolator(
+                HeadingInterpolator.piecewise(
+                new HeadingInterpolator.PiecewiseNode(
+                        0,
+                0.2,
+                        HeadingInterpolator.linear(FarShootPose.getHeading(),FarPickUp3_start.getHeading())),
+                new HeadingInterpolator.PiecewiseNode(
+                        0.2,
+                        1,
+                        HeadingInterpolator.constant(FarPickUp3_final.getHeading()))
+                )
+        );
         FarShoot_Ball3 = follower.pathBuilder()
                 .addPath(new BezierLine(FarPickUp3_final, FarShootPose))
                 .setLinearHeadingInterpolation(FarPickUp3_final.getHeading(), FarShootPose.getHeading())
