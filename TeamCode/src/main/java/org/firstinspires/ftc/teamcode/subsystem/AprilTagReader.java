@@ -129,48 +129,60 @@ public class AprilTagReader {
     }
 
     /**
-     * Convert AprilTagDetection to camera-to-tag transformation matrix (4x4 homogeneous).
+     * Convert AprilTagDetection to camera-to-tag transformation matrix (4x4 homogeneous) in the
+     * <b>FTC coordinate frame</b> (X-right, Y-forward/range, Z-up).
      *
-     * <p>Uses the <b>raw</b> OpenCV pose ({@code rawPose.R}, {@code rawPose.x/y/z}) so that
-     * the resulting matrix lives in the same coordinate frame as the tag-to-map matrix
-     * built by {@link Transformation#buildRMapTag}:
+     * <p>Translation from {@code ftcPose.x/y/z} — these are already in FTC frame:
      * <ul>
-     *   <li>Camera frame: X-right, Y-down, Z-forward (OpenCV convention)</li>
-     *   <li>Tag frame:    X-right across face, Y-down on face, Z-into wall</li>
+     *   <li>ftcPose.x = lateral right (metres)</li>
+     *   <li>ftcPose.y = range (depth, positive = tag in front)</li>
+     *   <li>ftcPose.z = elevation (positive = tag above camera)</li>
      * </ul>
      *
-     * <p>This matches the Python reference in {@code calibration/visualize_apriltag_tf.py}:
-     * {@code H_cameraToTag = [pose_R | pose_t; 0 0 0 1]}
+     * <p>Rotation from {@code rawPose.R} converted from OpenCV camera frame
+     * (X-right, Y-down, Z-forward) to FTC camera frame (X-right, Y-forward, Z-up).
+     * Conversion: R_ftc = T⁻¹ · R_opencv · T  where T⁻¹ converts OpenCV→FTC.
+     * <pre>
+     *   R_ftc[0][0] =  R[0][0]    R_ftc[0][1] =  R[0][2]    R_ftc[0][2] = -R[0][1]
+     *   R_ftc[1][0] =  R[2][0]    R_ftc[1][1] =  R[2][2]    R_ftc[1][2] = -R[2][1]
+     *   R_ftc[2][0] = -R[1][0]    R_ftc[2][1] = -R[1][2]    R_ftc[2][2] =  R[1][1]
+     * </pre>
+     * This is consistent with the tag-to-map matrix built by
+     * {@link Transformation#buildRMapTag} (also in FTC frame).
      *
-     * @param detection AprilTag detection (must have a valid {@code rawPose})
-     * @return 4x4 homogeneous matrix H = [R | t; 0 0 0 1] where R rotates tag→camera
-     *         and t is the tag origin in camera frame (meters)
+     * @param detection AprilTag detection (must have valid {@code rawPose} and {@code ftcPose})
+     * @return 4x4 homogeneous H = [R_ftc | t_ftc; 0 0 0 1]
      */
     public Matrix detectionToCameraToTag(AprilTagDetection detection) {
-        if (detection == null || detection.rawPose == null) {
+        if (detection == null || detection.rawPose == null || detection.ftcPose == null) {
             return Transformation.createIdentityMatrix();
         }
 
-        // Raw translation: tag origin in camera frame (OpenCV: X-right, Y-down, Z-forward)
-        double x = detection.rawPose.x;
-        double y = detection.rawPose.y;
-        double z = detection.rawPose.z;
+        // Translation in FTC frame (X-right, Y-range, Z-elevation)
+        double x = detection.ftcPose.x;
+        double y = detection.ftcPose.y;
+        double z = detection.ftcPose.z;
 
         if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
             return Transformation.createIdentityMatrix();
         }
 
-        // Raw rotation matrix: 3x3 MatrixF, tag→camera in OpenCV frame
+        // rawPose.R is in OpenCV camera frame (X-right, Y-down, Z-forward).
+        // Convert to FTC frame (X-right, Y-forward, Z-up) via R_ftc = T⁻¹ · R · T:
+        //   T converts FTC→OpenCV: OpenCV-y = -FTC-z,  OpenCV-z = FTC-y
         MatrixF R_raw = detection.rawPose.R;
-        double[][] R = new double[3][3];
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                R[i][j] = R_raw.get(i, j);
-            }
-        }
+        double r00 = R_raw.get(0, 0), r01 = R_raw.get(0, 1), r02 = R_raw.get(0, 2);
+        double r10 = R_raw.get(1, 0), r11 = R_raw.get(1, 1), r12 = R_raw.get(1, 2);
+        double r20 = R_raw.get(2, 0), r21 = R_raw.get(2, 1), r22 = R_raw.get(2, 2);
+
+        double[][] rfArr = {
+            {  r00,  r02, -r01 },    // row 0
+            {  r20,  r22, -r21 },    // row 1 (OpenCV-Z → FTC-Y)
+            { -r10, -r12,  r11 },    // row 2 (-OpenCV-Y → FTC-Z)
+        };
 
         Matrix H = Matrix.identity(4, 4);
-        H.setMatrix(0, 2, 0, 2, new Matrix(R));
+        H.setMatrix(0, 2, 0, 2, new Matrix(rfArr));
         H.set(0, 3, x);
         H.set(1, 3, y);
         H.set(2, 3, z);
