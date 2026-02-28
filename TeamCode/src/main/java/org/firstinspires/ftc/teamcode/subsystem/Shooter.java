@@ -47,12 +47,10 @@ public class Shooter {
     private Pose currentPose, relativeShootingVector;
     private double absoluteShooterHeading = 0, relativeShooterHeading = 0;
     public boolean shooterAiming = false;
+    public boolean shooterRotate = false;
+    public boolean farShot = false;
+    public boolean gateClosed = true;
     private Alliance alliance;
-
-    private double pidIntegral = 0.0;
-    private double pidLastError = 0.0;
-
-    private int lastEncoderPosition = 0;
     private double lastTime = 0.0;
     private double lastPowerUpdateTime = 0.0;
     private double lastAngularVelocity = 0.0;
@@ -110,10 +108,15 @@ public class Shooter {
 
     public void openGate(){
         gate.setPosition(gateOpen);
+        gateClosed = false;
     }
 
     public void closeGate(){
         gate.setPosition(gateClose);
+        gateClosed = true;
+    }
+    public boolean getGateClosed(){
+        return gateClosed;
     }
 
     public Alliance getAlliance() {
@@ -125,11 +128,15 @@ public class Shooter {
         if (shooterAiming) {
             calculateShooterAngle(robotHeading);
             setShooterAngle(relativeShooterHeading);
-            setAngleTuner(currentPose.getX(), currentPose.getY());
         } else {
-            shooter.setPower(0);
             rotate.setPower(0);
         }
+        if (shooterRotate){
+            setAngleTuner(currentPose.getX(), currentPose.getY());
+        }else{
+            shooter.setPower(0);
+        }
+
     }
 
     private void setShooterAngle(double shooterTargetHeading) {
@@ -171,6 +178,17 @@ public class Shooter {
     private void setShooterPower(double distance) {
         double currentTime = timer.milliseconds();
         double deltaTime = (currentTime - lastPowerUpdateTime) / 1000.0;
+        if (!farShot) {
+            if (distance < 25) {
+                shooterTargetAngularVelocity = 175;
+            } else if (distance < 45) {
+                shooterTargetAngularVelocity = 200;
+            } else {
+                shooterTargetAngularVelocity = 235;
+            }
+        }else {
+            shooterTargetAngularVelocity = 290;
+        }
         double targetAngularVelocity = shooterTargetAngularVelocity;
 
         if (deltaTime > shooterMinCheckSecond) {
@@ -194,6 +212,18 @@ public class Shooter {
     private void setShootingAngle(double distance) {
 //        double output = distance * 0.01;
         double output = angleTunerAngle;
+        if (!farShot) {
+            if (distance < 25) {
+                angleTunerAngle = 0.15;
+            } else if (distance < 45) {
+                angleTunerAngle = 0.2;
+            } else {
+                angleTunerAngle = 0.25;
+            }
+        }else {
+            angleTunerAngle = 0.28;
+        }
+
         //0.04-0.3
         angleTuner.setPosition(output);
     }
