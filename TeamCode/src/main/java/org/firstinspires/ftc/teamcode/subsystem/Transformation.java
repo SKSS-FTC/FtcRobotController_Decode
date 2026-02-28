@@ -200,43 +200,62 @@ public class Transformation {
     /**
      * Build the R_map_tag rotation matrix for a wall-mounted AprilTag.
      *
-     * <p>Matches the Python {@code build_R_map_tag(yaw_deg)} used in
-     * {@code visualize_apriltag_tf.py}.
-     *
-     * <p>OpenCV / pupil-apriltags tag frame:
+     * <p>Works in the <b>FTC coordinate frame</b> used consistently throughout:
      * <ul>
-     *   <li>tag-X – right across the face</li>
-     *   <li>tag-Y – <em>down</em> on the face</li>
-     *   <li>tag-Z – <em>into the wall</em> (away from the camera)</li>
+     *   <li>Camera / FTC frame: X-right, Y-forward (range), Z-up</li>
+     *   <li>Map frame:          X-east,  Y-north,         Z-up</li>
      * </ul>
      *
-     * <p>FTC map frame: X-right (east), Y-north (forward), Z-up.
+     * <p>FTC SDK {@code ftcPose} convention:
+     * <ul>
+     *   <li>ftcPose.x = lateral right (metres)</li>
+     *   <li>ftcPose.y = range – distance from camera to tag (metres, always &gt; 0 for tag in front)</li>
+     *   <li>ftcPose.z = elevation – positive = tag above camera</li>
+     * </ul>
      *
-     * <p>Reference orientation (yaw=0): tag on the south wall, facing north.
-     * After rotating {@code yawRad} around map-Z:
+     * <p>Tag frame axes (FTC convention, wall-mounted tag):
+     * <ul>
+     *   <li>tag-X – right across the face → rotated by ψ in map XY plane</li>
+     *   <li>tag-Y – depth / range direction (from camera toward tag) → points INTO the wall</li>
+     *   <li>tag-Z – up on the face → map-Z (always straight up)</li>
+     * </ul>
+     *
+     * <p>The resulting matrix is simply a standard 2-D rotation about map-Z:
      * <pre>
-     *   col-0 (tag-X) = ( cos(ψ),  sin(ψ),  0)
-     *   col-1 (tag-Y) = (      0,       0, -1)
-     *   col-2 (tag-Z) = (-sin(ψ),  cos(ψ),  0)   ← points INTO the wall
+     *   R_map_tag = [[ cosψ, -sinψ, 0 ],
+     *               [ sinψ,  cosψ, 0 ],
+     *               [   0,      0,  1 ]]
      * </pre>
      *
-     * <p>Verification:
+     * <p>Axis directions for the two tags (yaw measured from map +Y / north):
      * <ul>
-     *   <li>ψ = -54° → tag-Z ≈ (+0.809, +0.588, 0)  [RED  tag – upper-right wall]</li>
-     *   <li>ψ = +54° → tag-Z ≈ (-0.809, +0.588, 0)  [BLUE tag – upper-left  wall]</li>
+     *   <li>ψ = -54°: tag-Y (into wall) ≈ (+0.809, -0.588, 0) – RED  tag (upper-right)</li>
+     *   <li>ψ = +54°: tag-Y (into wall) ≈ (-0.809, +0.588, 0)... wait recalc below</li>
      * </ul>
-     * Camera (front of tag) is in the −tag-Z direction → inside the field ✓
      *
-     * @param yawRad yaw angle in <b>radians</b> (positive = CCW when viewed from above)
+     * <p>Verification with ψ = -54° (RED tag):
+     * <ul>
+     *   <li>col-0 = ( cos(-54°), sin(-54°), 0) = ( 0.588, -0.809, 0) – tag-X in map</li>
+     *   <li>col-1 = (-sin(-54°), cos(-54°), 0) = ( 0.809,  0.588, 0) – tag-Y, INTO upper-right wall ✓</li>
+     *   <li>col-2 = (0, 0, 1) – tag-Z, straight up</li>
+     * </ul>
+     * Camera sits in the −tag-Y direction (negative range from tag) → inside the field ✓
+     *
+     * @param yawRad yaw angle in <b>radians</b>
      * @return 3×3 rotation matrix as {@code double[3][3]}
      */
     public static double[][] buildRMapTag(double yawRad) {
         double c = Math.cos(yawRad);
         double s = Math.sin(yawRad);
+        // Simple 2D Z-rotation for the FTC map frame (X-east, Y-north, Z-up).
+        // This correctly maps:
+        //   tag-X (face right)   → (c,  s, 0) in map
+        //   tag-Y (depth/range)  → (-s, c, 0) in map  ← INTO the wall direction
+        //   tag-Z (face up)      → (0,  0, 1) in map
         return new double[][] {
-            { c,  0, -s },
-            { s,  0,  c },
-            { 0, -1,  0 },
+            { c, -s, 0 },
+            { s,  c, 0 },
+            { 0,  0, 1 },
         };
     }
 
