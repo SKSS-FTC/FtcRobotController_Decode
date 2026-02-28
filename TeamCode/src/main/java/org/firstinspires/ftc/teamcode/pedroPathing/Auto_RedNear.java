@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 import org.firstinspires.ftc.teamcode.subsystem.path.RedPath;
 import org.firstinspires.ftc.teamcode.subsystem.Intake;
+import org.firstinspires.ftc.teamcode.subsystem.Slider;
 
 @Autonomous(name = "AutoPathing_RedNear")
 public class Auto_RedNear extends LinearOpMode {
@@ -16,13 +17,16 @@ public class Auto_RedNear extends LinearOpMode {
     private RedPath redPath;
     private Shooter shooter;
     private Intake intake;
+    private Slider slider;
     private boolean setPath = false;
     private enum NearPathState {none, NearScorePreload, NearGet_Ball1, NearShoot_Ball1, NearGet_Ball2, NearShoot_Ball2, NearGet_Ball3, NearShoot_Ball3, NearEndPath, finish}
 
     ;
     private NearPathState currentNearPathState = NearPathState.none;
+    boolean shooterTimerBoolean = false;
     boolean OpmodeTimer = false;
     private Timer opmodeTimer;
+    private Timer shooterTimer;
 
     private void determinePath(int currentPath) {
         if (opmodeTimer.getElapsedTime() >= 25000) {
@@ -44,13 +48,17 @@ public class Auto_RedNear extends LinearOpMode {
     @Override
     public void runOpMode() {
         redPath = new RedPath(hardwareMap);
-        shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
+        shooter = new Shooter(hardwareMap, Shooter.Alliance.BLUE);
         intake = new Intake(hardwareMap);
         opmodeTimer = new Timer();
+        shooterTimer = new Timer();
         opmodeTimer.resetTimer();
+        shooterTimer.resetTimer();
         redPath.setNearStartPose();
+        slider.drive();
         waitForStart();
         while (opModeIsActive()) {
+            shooter.shooterAiming = true;
             if (!OpmodeTimer) {
                 opmodeTimer.resetTimer();
                 OpmodeTimer = true;
@@ -59,14 +67,31 @@ public class Auto_RedNear extends LinearOpMode {
                 case none:
                     currentNearPathState = NearPathState.NearScorePreload;
 
+
                 case NearScorePreload:
                     if (!setPath) {
                         redPath.follower.followPath(redPath.NearScorePreload);
                         setPath = true;
+                        shooter.shooterRotate = true;
+                        shooterTimerBoolean = false;
                     }
                     if (!redPath.follower.isBusy()) {
-                        setPath = false;
-                        determinePath(0);
+                        if (!shooterTimerBoolean) {
+                            shooterTimerBoolean = true;
+                            shooterTimer.resetTimer();
+                        }
+                        if (shooterTimer.getElapsedTimeSeconds() < 0.1) {
+                            shooter.openGate();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 0.3) {
+                            intake.shoot();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 0.8) {
+                            intake.shoot();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 1.3) {
+                            intake.shoot();
+                        } else {
+                            setPath = false;
+                            determinePath(0);
+                        }
                     }
 
                 case NearGet_Ball1:
@@ -76,29 +101,49 @@ public class Auto_RedNear extends LinearOpMode {
                         setPath = true;
                     }
                     if (!redPath.follower.isBusy()) {
+                        intake.stop();
                         setPath = false;
                         currentNearPathState = NearPathState.NearShoot_Ball1;
                         intake.stop();
                     }
 
                 case NearShoot_Ball1:
-                    if(!setPath) {
+                    if (!setPath) {
                         redPath.follower.followPath(redPath.NearShoot_Ball1);
                         setPath = true;
+                        shooter.shooterRotate = true;
+                        shooterTimerBoolean = false;
                     }
                     if (!redPath.follower.isBusy()) {
-                        setPath = false;
-                        determinePath(1);
+                        if (!shooterTimerBoolean) {
+                            shooterTimerBoolean = true;
+                            shooterTimer.resetTimer();
+                        }
+                        if (shooterTimer.getElapsedTimeSeconds() < 0.1) {
+                            shooter.openGate();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 0.3) {
+                            intake.shoot();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 0.8) {
+                            intake.shoot();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 1.3) {
+                            intake.shoot();
+                        } else {
+                            setPath = false;
+                            shooter.shooterRotate = false;
+                            determinePath(1);
+                        }
                     }
 
+
                 case NearGet_Ball2:
-                    if (!setPath){
+                    if (!setPath) {
+                        intake.intake();
                         redPath.follower.followPath(redPath.NearGet_Ball2);
                         setPath = true;
                     }
                     if (!redPath.follower.isBusy()) {
                         currentNearPathState = NearPathState.NearShoot_Ball2;
-                        intake.intake();
+                        intake.stop();
                         setPath = false;
                     }
 
@@ -106,21 +151,38 @@ public class Auto_RedNear extends LinearOpMode {
                     if (!setPath) {
                         redPath.follower.followPath(redPath.NearShoot_Ball2);
                         setPath = true;
+                        shooter.shooterRotate = true;
+                        shooterTimerBoolean = false;
                     }
                     if (!redPath.follower.isBusy()) {
-                        determinePath(2);
-                        setPath = false;
-                        intake.stop();
+                        if (!shooterTimerBoolean) {
+                            shooterTimerBoolean = true;
+                            shooterTimer.resetTimer();
+                        }
+                        if (shooterTimer.getElapsedTimeSeconds() < 0.1) {
+                            shooter.openGate();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 0.3) {
+                            intake.shoot();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 0.8) {
+                            intake.shoot();
+                        } else if (shooterTimer.getElapsedTimeSeconds() < 1.3) {
+                            intake.shoot();
+                        } else {
+                            setPath = false;
+                            shooter.shooterRotate = false;
+                            determinePath(2);
+                        }
                     }
 
                 case NearGet_Ball3:
                     if (!setPath) {
+                        intake.intake();
                         redPath.follower.followPath(redPath.NearGet_Ball3);
                         setPath = true;
                     }
                     if (!redPath.follower.isBusy()) {
                         currentNearPathState = NearPathState.NearShoot_Ball3;
-                        intake.intake();
+                        intake.stop();
                         setPath = false;
                     }
 
@@ -128,11 +190,28 @@ public class Auto_RedNear extends LinearOpMode {
                     if (!setPath) {
                         redPath.follower.followPath(redPath.NearShoot_Ball3);
                         setPath = true;
+                        shooter.shooterRotate = true;
+                        shooterTimerBoolean = false;
                     }
                     if (!redPath.follower.isBusy()) {
-                        determinePath(3);
-                        intake.stop();
-                        setPath = false;
+                        if (!shooterTimerBoolean){
+                            shooterTimerBoolean = true;
+                            shooterTimer.resetTimer();
+                        }
+                        if (shooterTimer.getElapsedTimeSeconds()<0.1) {
+                            shooter.openGate();
+                        }else if (shooterTimer.getElapsedTimeSeconds()<0.3) {
+                            intake.shoot();
+                        }else if (shooterTimer.getElapsedTimeSeconds()<0.8) {
+                            intake.shoot();
+                        }
+                        else if (shooterTimer.getElapsedTimeSeconds()<1.3) {
+                            intake.shoot();
+                        }else{
+                            setPath = false;
+                            shooter.shooterRotate = false;
+                            determinePath(3);
+                        }
                     }
 
                 case NearEndPath:
@@ -146,13 +225,9 @@ public class Auto_RedNear extends LinearOpMode {
                     }
 
                 case finish:
-                    if (gamepad1.triangle) {
-                        currentNearPathState = NearPathState.none;
-                        //restart the path again
-                    }
             }
             redPath.update();
-            shooter.update(new Pose(85, 97.67874794069192), Math.toRadians(35));
+            shooter.update(redPath.NearShootPose,redPath.NearShootPose.getHeading());
 
 
             telemetry.addData("NearPathState", currentNearPathState);

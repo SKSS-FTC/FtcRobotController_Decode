@@ -11,25 +11,25 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.subsystem.RobotState;
 
 public class RedPath {
-    private final Pose FarStartPose = new Pose(122, 124.06919275123559, Math.toRadians(36));
-    private final Pose NearStartPose = new Pose(88,9.01153212520594,Math.toRadians(90));
-    private final Pose FarShootPose = new Pose(90, 100, Math.toRadians(36));
-    private final Pose NearShootPose = new Pose(88,8, Math.toRadians(75));
-    private final Pose EndPose = new Pose(91.29654036243821,59.820428336079075,Math.toRadians(0));
-    private final Pose HumanPlayerPose = new Pose(12.001647446457977, 10.604612850082383, Math.toRadians(180));
-    private final Pose GatePose = new Pose(144-16.03459637561778, 68.01482701812193, Math.toRadians(180));
-    private final Pose FarPickUp1_start = new Pose(103.26029654036246,83.44481054365735,Math.toRadians(0));//From Up to Down
-    private final Pose FarPickUp1_final = new Pose(128,83.44481054365735,Math.toRadians(0));//From Up to Down
-    private final Pose FarPickUp2_start = new Pose(102.19110378912686,59.22075782537066,Math.toRadians(0));//From Up to Down
-    private final Pose FarPickUp2_final = new Pose(129,59.22075782537066,Math.toRadians(0));//From Up to Down
-    private final Pose FarPickUp3_start = new Pose(102.56013179571664,35.52553542009881,Math.toRadians(0));//From Up to Down
-    private final Pose FarPickUp3_final = new Pose(129,35.52553542009881, Math.toRadians(0));//From Up to Down
-    private final Pose NearPickUp1_start = new Pose(102.56013179571664,35.52553542009881,0);//From Down to Up
-    private final Pose NearPickUp1_final = new Pose(129,35.52553542009881,0);//From Down to Up
-    private final Pose NearPickUp2_start = new Pose(102.19110378912686,59.22075782537066,0);//From Down to Up
-    private final Pose NearPickUp2_final = new Pose(129,59.22075782537066,0);//From Down to UP
-    private final Pose NearPickUp3_start = new Pose(103.26029654036246,83.44481054365735,0);//From Down to Up
-    private final Pose NearPickUp3_final = new Pose(128,83.44481054365735,0);//From Down to Up
+    public final Pose FarStartPose = new Pose(122, 124.06919275123559, Math.toRadians(36));
+    public final Pose NearStartPose = new Pose(88,9.01153212520594,Math.toRadians(90));
+    public final Pose FarShootPose = new Pose(90, 100, Math.toRadians(36));
+    public final Pose NearShootPose = new Pose(88,8, Math.toRadians(75));
+    public final Pose EndPose = new Pose(91.29654036243821,59.820428336079075,Math.toRadians(0));
+    public final Pose HumanPlayerPose = new Pose(12.001647446457977, 10.604612850082383, Math.toRadians(180));
+    public final Pose GatePose = new Pose(144-16.03459637561778, 68.01482701812193, Math.toRadians(180));
+    public final Pose FarPickUp1_start = new Pose(103.26029654036246,83.44481054365735,Math.toRadians(0));//From Up to Down
+    public final Pose FarPickUp1_final = new Pose(128,83.44481054365735,Math.toRadians(0));//From Up to Down
+    public final Pose FarPickUp2_start = new Pose(102.19110378912686,59.22075782537066,Math.toRadians(0));//From Up to Down
+    public final Pose FarPickUp2_final = new Pose(129,59.22075782537066,Math.toRadians(0));//From Up to Down
+    public final Pose FarPickUp3_start = new Pose(102.56013179571664,35.52553542009881,Math.toRadians(0));//From Up to Down
+    public final Pose FarPickUp3_final = new Pose(129,35.52553542009881, Math.toRadians(0));//From Up to Down
+    public final Pose NearPickUp1_start = new Pose(102.56013179571664,35.52553542009881,0);//From Down to Up
+    public final Pose NearPickUp1_final = new Pose(129,35.52553542009881,0);//From Down to Up
+    public final Pose NearPickUp2_start = new Pose(102.19110378912686,59.22075782537066,0);//From Down to Up
+    public final Pose NearPickUp2_final = new Pose(129,59.22075782537066,0);//From Down to UP
+    public final Pose NearPickUp3_start = new Pose(103.26029654036246,83.44481054365735,0);//From Down to Up
+    public final Pose NearPickUp3_final = new Pose(128,83.44481054365735,0);//From Down to Up
     public PathChain NearScorePreload, NearGet_Ball1, NearShoot_Ball1, HumanPlayer_Ball, NearGet_Ball2, NearShoot_Ball2, NearGet_Ball3, NearShoot_Ball3;
     public PathChain FarScorePreload, FarGet_Ball1, FarShoot_Ball1,FarGet_Ball2, FarShoot_Ball2, FarGet_Ball3, FarShoot_Ball3;
     public PathChain FarEndPath, NearEndPath;
