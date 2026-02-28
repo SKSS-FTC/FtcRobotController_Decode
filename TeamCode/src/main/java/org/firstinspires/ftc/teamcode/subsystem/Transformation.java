@@ -33,7 +33,7 @@ public class Transformation {
                         {Math.sin(a),Math.cos(a)*Math.cos(y),-1*Math.cos(a)*Math.sin(y)},
                         {0,Math.sin(y),Math.cos(y)}
                 },
-                new double[]{0.081,-0.10323,0.184}
+                new double[]{0.039,-0.097,-0.096}
         );;
         H_SHOOTER_TO_BASE = createTransformationMatrix(
                 new double[][]{
@@ -41,7 +41,7 @@ public class Transformation {
                         {0,1,0},
                         {0,0,1}
                 },
-                new double[]{0,-0.08,0.24}
+                new double[]{0,-0.08,-0.24}
         );
         TAG_TO_MAP_TRANSFORMS.clear();
     }

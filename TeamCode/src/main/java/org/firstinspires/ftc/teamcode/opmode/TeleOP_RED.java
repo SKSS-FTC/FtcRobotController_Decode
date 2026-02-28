@@ -53,6 +53,7 @@ public class TeleOP_RED extends LinearOpMode {
                 .webcamName("Webcam 1")
                 .startingPose(STARTING_POSE)
                 .build();
+        localizer.init(hardwareMap);
         aprilTagReader = new AprilTagReader();
 
         // TODO: Update AprilTag initialization to match current SDK API
