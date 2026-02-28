@@ -77,18 +77,43 @@ public class Transformation {
 
         Matrix H_tagToMap = getTagToMapTransform(tagId);
 
-        // H_base_cam: camera expressed in base frame (t = camera position in base frame).
-        // For test: camera is 0.3 m above base centre, no rotation.
-        Matrix H_baseToCamera = new Matrix(new double[][]{
-            {1, 0, 0, 0},
-            {0, 1, 0, 0},
-            {0, 0, 1, 0.3},
-            {0, 0, 0, 1}
-        });
+        // ── Notation ────────────────────────────────────────────
+        // Each "X_TO_Y" variable stores the pose-of-X-in-Y, i.e. ^Y T_X,
+        // which transforms points FROM frame X INTO frame Y.
+        //
+        // Actual matrices:
+        //   H_cameraToTag        (AprilTagReader)  = ^cam T_tag
+        //   H_tagToMap            (Constants)       = ^map T_tag
+        //   H_CAMERA_TO_SHOOTER                     = ^shooter T_cam
+        //   H_SHOOTER_TO_BASE                       = ^base T_shooter
+        //
+        // Goal: ^map T_base  (robot base pose in map frame).
+        //
+        // Chain:  ^map T_base = ^map T_tag  ×  ^tag T_cam  ×  ^cam T_base
+        //
+        //   ^tag T_cam  = (^cam T_tag)^-1              = H_cameraToTag^-1
+        //   ^base T_cam = ^base T_shooter × ^shooter T_cam
+        //               = H_SHOOTER_TO_BASE × H_CAMERA_TO_SHOOTER
+        //   ^cam T_base = (^base T_cam)^-1
+        // ────────────────────────────────────────────────────────
 
-//        Matrix H_baseToMap = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap);
-        Matrix H_mapToBase = ((H_baseToCamera.times(H_cameraToTag)).times(H_tagToMap)).inverse();
-        return extractRotationAndTranslation(H_mapToBase);
+        // tag ← camera
+        Matrix H_tagFromCam = H_cameraToTag.inverse();
+
+        // base ← camera  (body chain, correct multiplication order)
+        // Matrix H_baseFromCam = H_SHOOTER_TO_BASE.times(H_CAMERA_TO_SHOOTER);
+
+        // Base from cam is zero for testing
+        Matrix H_baseFromCam = createIdentityMatrix();
+
+
+        // camera ← base
+        Matrix H_camFromBase = H_baseFromCam.inverse();
+
+        // map ← base  (full chain)
+        Matrix H_mapFromBase = H_tagToMap.times(H_tagFromCam).times(H_camFromBase);
+
+        return extractRotationAndTranslation(H_mapFromBase);
     }
 
     public static RobotPose getRobotPoseInMapFromMultipleTags(List<TagDetection> tagDetections) {
@@ -170,6 +195,68 @@ public class Transformation {
         }
 
         return new RobotPose(rotationMatrix, translation);
+    }
+
+    /**
+     * Build the R_map_tag rotation matrix for a wall-mounted AprilTag.
+     *
+     * <p>Works in the <b>FTC coordinate frame</b> used consistently throughout:
+     * <ul>
+     *   <li>Camera / FTC frame: X-right, Y-forward (range), Z-up</li>
+     *   <li>Map frame:          X-east,  Y-north,         Z-up</li>
+     * </ul>
+     *
+     * <p>FTC SDK {@code ftcPose} convention:
+     * <ul>
+     *   <li>ftcPose.x = lateral right (metres)</li>
+     *   <li>ftcPose.y = range – distance from camera to tag (metres, always &gt; 0 for tag in front)</li>
+     *   <li>ftcPose.z = elevation – positive = tag above camera</li>
+     * </ul>
+     *
+     * <p>Tag frame axes (FTC convention, wall-mounted tag):
+     * <ul>
+     *   <li>tag-X – right across the face → rotated by ψ in map XY plane</li>
+     *   <li>tag-Y – depth / range direction (from camera toward tag) → points INTO the wall</li>
+     *   <li>tag-Z – up on the face → map-Z (always straight up)</li>
+     * </ul>
+     *
+     * <p>The resulting matrix is simply a standard 2-D rotation about map-Z:
+     * <pre>
+     *   R_map_tag = [[ cosψ, -sinψ, 0 ],
+     *               [ sinψ,  cosψ, 0 ],
+     *               [   0,      0,  1 ]]
+     * </pre>
+     *
+     * <p>Axis directions for the two tags (yaw measured from map +Y / north):
+     * <ul>
+     *   <li>ψ = -54°: tag-Y (into wall) ≈ (+0.809, -0.588, 0) – RED  tag (upper-right)</li>
+     *   <li>ψ = +54°: tag-Y (into wall) ≈ (-0.809, +0.588, 0)... wait recalc below</li>
+     * </ul>
+     *
+     * <p>Verification with ψ = -54° (RED tag):
+     * <ul>
+     *   <li>col-0 = ( cos(-54°), sin(-54°), 0) = ( 0.588, -0.809, 0) – tag-X in map</li>
+     *   <li>col-1 = (-sin(-54°), cos(-54°), 0) = ( 0.809,  0.588, 0) – tag-Y, INTO upper-right wall ✓</li>
+     *   <li>col-2 = (0, 0, 1) – tag-Z, straight up</li>
+     * </ul>
+     * Camera sits in the −tag-Y direction (negative range from tag) → inside the field ✓
+     *
+     * @param yawRad yaw angle in <b>radians</b>
+     * @return 3×3 rotation matrix as {@code double[3][3]}
+     */
+    public static double[][] buildRMapTag(double yawRad) {
+        double c = Math.cos(yawRad);
+        double s = Math.sin(yawRad);
+        // Simple 2D Z-rotation for the FTC map frame (X-east, Y-north, Z-up).
+        // This correctly maps:
+        //   tag-X (face right)   → (c,  s, 0) in map
+        //   tag-Y (depth/range)  → (-s, c, 0) in map  ← INTO the wall direction
+        //   tag-Z (face up)      → (0,  0, 1) in map
+        return new double[][] {
+            { c, -s, 0 },
+            { s,  c, 0 },
+            { 0,  0, 1 },
+        };
     }
 
     public static Matrix createIdentityMatrix() {
