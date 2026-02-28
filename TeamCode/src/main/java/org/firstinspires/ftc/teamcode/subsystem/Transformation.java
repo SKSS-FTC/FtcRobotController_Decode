@@ -77,18 +77,43 @@ public class Transformation {
 
         Matrix H_tagToMap = getTagToMapTransform(tagId);
 
-        // H_base_cam: camera expressed in base frame (t = camera position in base frame).
-        // For test: camera is 0.3 m above base centre, no rotation.
-        Matrix H_baseToCamera = new Matrix(new double[][]{
-            {1, 0, 0, 0},
-            {0, 1, 0, 0},
-            {0, 0, 1, 0.3},
-            {0, 0, 0, 1}
-        });
+        // ── Notation ────────────────────────────────────────────
+        // Each "X_TO_Y" variable stores the pose-of-X-in-Y, i.e. ^Y T_X,
+        // which transforms points FROM frame X INTO frame Y.
+        //
+        // Actual matrices:
+        //   H_cameraToTag        (AprilTagReader)  = ^cam T_tag
+        //   H_tagToMap            (Constants)       = ^map T_tag
+        //   H_CAMERA_TO_SHOOTER                     = ^shooter T_cam
+        //   H_SHOOTER_TO_BASE                       = ^base T_shooter
+        //
+        // Goal: ^map T_base  (robot base pose in map frame).
+        //
+        // Chain:  ^map T_base = ^map T_tag  ×  ^tag T_cam  ×  ^cam T_base
+        //
+        //   ^tag T_cam  = (^cam T_tag)^-1              = H_cameraToTag^-1
+        //   ^base T_cam = ^base T_shooter × ^shooter T_cam
+        //               = H_SHOOTER_TO_BASE × H_CAMERA_TO_SHOOTER
+        //   ^cam T_base = (^base T_cam)^-1
+        // ────────────────────────────────────────────────────────
 
-//        Matrix H_baseToMap = H_baseToCamera.times(H_cameraToTag).times(H_tagToMap);
-        Matrix H_mapToBase = ((H_baseToCamera.times(H_cameraToTag)).times(H_tagToMap)).inverse();
-        return extractRotationAndTranslation(H_mapToBase);
+        // tag ← camera
+        Matrix H_tagFromCam = H_cameraToTag.inverse();
+
+        // base ← camera  (body chain, correct multiplication order)
+        // Matrix H_baseFromCam = H_SHOOTER_TO_BASE.times(H_CAMERA_TO_SHOOTER);
+
+        // Base from cam is zero for testing
+        Matrix H_baseFromCam = createIdentityMatrix();
+
+
+        // camera ← base
+        Matrix H_camFromBase = H_baseFromCam.inverse();
+
+        // map ← base  (full chain)
+        Matrix H_mapFromBase = H_tagToMap.times(H_tagFromCam).times(H_camFromBase);
+
+        return extractRotationAndTranslation(H_mapFromBase);
     }
 
     public static RobotPose getRobotPoseInMapFromMultipleTags(List<TagDetection> tagDetections) {
@@ -170,6 +195,49 @@ public class Transformation {
         }
 
         return new RobotPose(rotationMatrix, translation);
+    }
+
+    /**
+     * Build the R_map_tag rotation matrix for a wall-mounted AprilTag.
+     *
+     * <p>Matches the Python {@code build_R_map_tag(yaw_deg)} used in
+     * {@code visualize_apriltag_tf.py}.
+     *
+     * <p>OpenCV / pupil-apriltags tag frame:
+     * <ul>
+     *   <li>tag-X – right across the face</li>
+     *   <li>tag-Y – <em>down</em> on the face</li>
+     *   <li>tag-Z – <em>into the wall</em> (away from the camera)</li>
+     * </ul>
+     *
+     * <p>FTC map frame: X-right (east), Y-north (forward), Z-up.
+     *
+     * <p>Reference orientation (yaw=0): tag on the south wall, facing north.
+     * After rotating {@code yawRad} around map-Z:
+     * <pre>
+     *   col-0 (tag-X) = ( cos(ψ),  sin(ψ),  0)
+     *   col-1 (tag-Y) = (      0,       0, -1)
+     *   col-2 (tag-Z) = (-sin(ψ),  cos(ψ),  0)   ← points INTO the wall
+     * </pre>
+     *
+     * <p>Verification:
+     * <ul>
+     *   <li>ψ = -54° → tag-Z ≈ (+0.809, +0.588, 0)  [RED  tag – upper-right wall]</li>
+     *   <li>ψ = +54° → tag-Z ≈ (-0.809, +0.588, 0)  [BLUE tag – upper-left  wall]</li>
+     * </ul>
+     * Camera (front of tag) is in the −tag-Z direction → inside the field ✓
+     *
+     * @param yawRad yaw angle in <b>radians</b> (positive = CCW when viewed from above)
+     * @return 3×3 rotation matrix as {@code double[3][3]}
+     */
+    public static double[][] buildRMapTag(double yawRad) {
+        double c = Math.cos(yawRad);
+        double s = Math.sin(yawRad);
+        return new double[][] {
+            { c,  0, -s },
+            { s,  0,  c },
+            { 0, -1,  0 },
+        };
     }
 
     public static Matrix createIdentityMatrix() {
