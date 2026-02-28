@@ -153,10 +153,10 @@ public class Auto_RedFar extends LinearOpMode {
                     }
             }
             redPath.update();
-//            shooter.update(new Pose(85, 97.67874794069192), Math.toRadians(35));
+            shooter.update(new Pose(85, 97.67874794069192), Math.toRadians(35));
 
 
-            telemetry.addData("NearPathState", currentFarPathState);
+            telemetry.addData("FarPathState", currentFarPathState);
             telemetry.addData("x", redPath.follower.getPose().getX());
             telemetry.addData("y", redPath.follower.getPose().getY());
             telemetry.addData("heading", redPath.follower.getPose().getHeading());

@@ -39,7 +39,7 @@ public class shooterAlgorithmTest2 extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        driveTrain = new DriveTrain(hardwareMap);
+//        driveTrain = new DriveTrain(hardwareMap);
         shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
         intake = new Intake(hardwareMap);
         aprilTagReader = new AprilTagReader();
@@ -131,6 +131,7 @@ public class shooterAlgorithmTest2 extends LinearOpMode {
                 intake.stop();
             }
             intake.update();
+//            driveTrain.update(gamepad1.left_stick_x, gamepad1.left_stick_y, gamepad1.right_stick_x);
             telemetry.addData("kicker timer",intake.shootTimer.milliseconds());
             telemetry.addData("angular velocity",shooter.getShootVelocity());
 

@@ -17,6 +17,7 @@ public class DriveTrain {
         rightUp = hardwareMap.get(DcMotor.class, "rightUp");
         leftDown = hardwareMap.get(DcMotor.class, "leftDown");
         rightDown = hardwareMap.get(DcMotor.class, "rightDown");
+        imu = hardwareMap.get(IMU.class,"imu");
         fieldDrive = true;
         leftUp.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightUp.setMode(DcMotor.RunMode.RUN_USING_ENCODER);

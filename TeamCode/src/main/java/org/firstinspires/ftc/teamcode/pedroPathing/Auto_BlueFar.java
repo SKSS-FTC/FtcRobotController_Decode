@@ -1,23 +1,25 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
+
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-
-import org.firstinspires.ftc.teamcode.subsystem.Intake;
 import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 import org.firstinspires.ftc.teamcode.subsystem.path.BluePath;
+import org.firstinspires.ftc.teamcode.subsystem.Intake;
 
-@Autonomous(name = "AutoPathing_BlueFar",preselectTeleOp = "blue")
+@Autonomous(name = "AutoPathing_BlueFar")
 public class Auto_BlueFar extends LinearOpMode {
     boolean PathGrabShoot1 = true;
     boolean PathGrabShoot2 = true;
     boolean PathGrabShoot3 = true;
-    private boolean setPath = false;
     private BluePath bluePath;
     private Shooter shooter;
     private Intake intake;
-    private enum FarPathState {none,FarScorePreload,FarGet_Ball1, FarShoot_Ball1, FarGet_Ball2, FarShoot_Ball2, FarGet_Ball3, FarShoot_Ball3, FarEndPath, finish};
+    private boolean setPath = false;
+    private enum FarPathState {none, FarScorePreload, FarGet_Ball1, FarShoot_Ball1, FarGet_Ball2, FarShoot_Ball2, FarGet_Ball3, FarShoot_Ball3, FarEndPath, finish}
+
+    ;
     private FarPathState currentFarPathState = FarPathState.none;
     boolean OpmodeTimer = false;
     private Timer opmodeTimer;
@@ -25,24 +27,17 @@ public class Auto_BlueFar extends LinearOpMode {
     private void determinePath(int currentPath) {
         if (opmodeTimer.getElapsedTime() >= 25000) {
             currentFarPathState = FarPathState.FarEndPath;
-            if (currentPath == 0) {
-                if (PathGrabShoot1) {
-                    currentFarPathState = FarPathState.FarGet_Ball1;
-                }
-            }
         }
-        if (currentPath <= 1) {
-            if (PathGrabShoot2) {
-                currentFarPathState = FarPathState.FarGet_Ball2;
-            }
+        if (currentPath == 0 && PathGrabShoot1) {
+            currentFarPathState = FarPathState.FarGet_Ball1;
+        } else if (currentPath <= 1 && PathGrabShoot2) {
+            //finish path 1
+            currentFarPathState = FarPathState.FarGet_Ball2;
+        }else if (currentPath <= 2 && PathGrabShoot3) {
+            currentFarPathState = FarPathState.FarShoot_Ball3;
         }
-        if (currentPath <= 2) {
-            if (PathGrabShoot3) {
-                currentFarPathState = FarPathState.FarShoot_Ball3;
-            }
-            else {
-                currentFarPathState = FarPathState.finish;
-            }
+        else {
+            currentFarPathState = FarPathState.FarEndPath;
         }
     }
 
@@ -53,6 +48,7 @@ public class Auto_BlueFar extends LinearOpMode {
         intake = new Intake(hardwareMap);
         opmodeTimer = new Timer();
         opmodeTimer.resetTimer();
+        bluePath.setFarStartPose();
         waitForStart();
         while (opModeIsActive()) {
             shooter.shooterAiming = true;
@@ -63,107 +59,108 @@ public class Auto_BlueFar extends LinearOpMode {
             switch (currentFarPathState) {
                 case none:
                     currentFarPathState = FarPathState.FarScorePreload;
-                    setPath = true;
 
                 case FarScorePreload:
-                    if (setPath) {
+                    if (!setPath) {
                         bluePath.follower.followPath(bluePath.FarScorePreload);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
+                        setPath = false;
                         determinePath(0);
-                        setPath = true;
                     }
 
                 case FarGet_Ball1:
-                    if (setPath) {
+                    if (!setPath) {
+                        intake.intake();
                         bluePath.follower.followPath(bluePath.FarGet_Ball1);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
+                        setPath = false;
                         currentFarPathState = FarPathState.FarShoot_Ball1;
-                        intake.intake();
-                        setPath = true;
+                        intake.stop();
                     }
 
                 case FarShoot_Ball1:
-                    if (setPath) {
+                    if(!setPath) {
                         bluePath.follower.followPath(bluePath.FarShoot_Ball1);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
+                        setPath = false;
                         determinePath(1);
-                        intake.stop();
-                        setPath = true;
                     }
 
                 case FarGet_Ball2:
-                    if (setPath) {
+                    if (!setPath){
                         bluePath.follower.followPath(bluePath.FarGet_Ball2);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
                         currentFarPathState = FarPathState.FarShoot_Ball2;
                         intake.intake();
-                        setPath = true;
+                        setPath = false;
                     }
 
                 case FarShoot_Ball2:
-                    if (setPath) {
+                    if (!setPath) {
                         bluePath.follower.followPath(bluePath.FarShoot_Ball2);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
                         determinePath(2);
+                        setPath = false;
                         intake.stop();
-                        setPath = true;
                     }
 
                 case FarGet_Ball3:
-                    if (setPath) {
+                    if (!setPath) {
                         bluePath.follower.followPath(bluePath.FarGet_Ball3);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
                         currentFarPathState = FarPathState.FarShoot_Ball3;
                         intake.intake();
-                        setPath = true;
+                        setPath = false;
                     }
 
                 case FarShoot_Ball3:
-                    if (setPath) {
+                    if (!setPath) {
                         bluePath.follower.followPath(bluePath.FarShoot_Ball3);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
                         determinePath(3);
                         intake.stop();
-                        setPath = true;
+                        setPath = false;
                     }
 
                 case FarEndPath:
-                    if (setPath) {
+                    if(!setPath) {
                         bluePath.follower.followPath(bluePath.FarEndPath);
-                        setPath = false;
+                        setPath = true;
                     }
                     if (!bluePath.follower.isBusy()) {
                         currentFarPathState = FarPathState.finish;
+                        setPath = false;
                     }
 
                 case finish:
                     if (gamepad1.triangle) {
                         currentFarPathState = FarPathState.none;
-                        setPath = true;
+                        //restart the path again
                     }
             }
-            bluePath.follower.update();
-            shooter.update(new Pose(59.24382207578253, 97.67874794069192),  Math.toRadians(140));
+            bluePath.update();
+            shooter.update(new Pose(85, 97.67874794069192), Math.toRadians(35));
 
 
-            telemetry.addData("PathState", currentFarPathState);
+            telemetry.addData("FarPathState", currentFarPathState);
             telemetry.addData("x", bluePath.follower.getPose().getX());
             telemetry.addData("y", bluePath.follower.getPose().getY());
             telemetry.addData("heading", bluePath.follower.getPose().getHeading());
+//            telemetry.addData("running path",bluePath.follower.)
             telemetry.update();
         }
     }
