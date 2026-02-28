@@ -57,7 +57,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
         leftUp.setDirection(DcMotorSimple.Direction.REVERSE);
 
         waitForStart();
-        imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP)));
+        imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP)));
         imu.resetYaw();
 
         while (opModeIsActive()) {

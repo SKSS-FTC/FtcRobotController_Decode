@@ -19,6 +19,7 @@ public class Intake {
     public Intake(HardwareMap hardwareMap) {
         intake = hardwareMap.get(DcMotor.class,"intake");
         kicker = hardwareMap.get(Servo.class,"kicker");
+
         shootTimer = new ElapsedTime();
 
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -33,7 +34,7 @@ public class Intake {
     public void reserve(){intake.setPower(-0.7);}
 
     public void shoot(){
-        stop();
+        intake();
         setKickerPosition(0);
         shootState = 1;
         shootTimer.reset();

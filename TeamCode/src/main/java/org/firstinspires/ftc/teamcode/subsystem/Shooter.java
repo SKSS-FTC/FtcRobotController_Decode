@@ -85,7 +85,7 @@ public class Shooter {
         gate = hardwareMap.get(Servo.class,"shooterGate");
 
 
-        rotate.setDirection(DcMotorSimple.Direction.FORWARD);
+        rotate.setDirection(DcMotorSimple.Direction.REVERSE);
         shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         angleTuner.setDirection(Servo.Direction.FORWARD);
         gate.setDirection(Servo.Direction.FORWARD);
@@ -141,7 +141,7 @@ public class Shooter {
 
     private void setShooterAngle(double shooterTargetHeading) {
         rotate.setTargetPosition((int) (shooterTargetHeading / 360 * shooterEncoder));
-        rotate.setPower(1);
+        rotate.setPower(0.5);
     }
 
     private void calculateShooterAngle(double robotHeading) {
@@ -151,9 +151,9 @@ public class Shooter {
                 currentPose.getY() - targetPosition.get(1, 0));
 
         if (alliance == Alliance.BLUE) {
-            absoluteShooterHeading = 360 - Math.tan(Math.abs(relativeShootingVector.getX() / relativeShootingVector.getY()) * Math.PI / 180);
+            absoluteShooterHeading = -54;
         } else {
-            absoluteShooterHeading = Math.tan(Math.abs(relativeShootingVector.getX() / relativeShootingVector.getY()) * Math.PI / 180);
+            absoluteShooterHeading = 54;
         }
 
         relativeShooterHeading = absoluteShooterHeading - robotHeading;
