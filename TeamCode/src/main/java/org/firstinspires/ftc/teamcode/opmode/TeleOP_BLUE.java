@@ -25,7 +25,7 @@ import java.util.List;
 import Jama.Matrix;
 
 @TeleOp(name = "ShooterAlgorithmTest2", group = "Tests")
-public class TeleOP_Test2 extends LinearOpMode {
+public class TeleOP_BLUE extends LinearOpMode {
     private Slider slider;
     private DriveTrain driveTrain;
     private Shooter shooter;
@@ -43,7 +43,8 @@ public class TeleOP_Test2 extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         slider = new Slider(hardwareMap);
         driveTrain = new DriveTrain(hardwareMap);
-        shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
+        shooter = new Shooter(hardwareMap, Shooter.Alliance.BLUE);
+//        shooter = new Shooter(hardwareMap, Shooter.Alliance.BLUE);
         intake = new Intake(hardwareMap);
         if(currentPose != null){
             STARTING_POSE = currentPose;
