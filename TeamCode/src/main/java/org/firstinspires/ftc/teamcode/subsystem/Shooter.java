@@ -178,17 +178,18 @@ public class Shooter {
     private void setShooterPower(double distance) {
         double currentTime = timer.milliseconds();
         double deltaTime = (currentTime - lastPowerUpdateTime) / 1000.0;
-        if (!farShot) {
-            if (distance < 25) {
-                shooterTargetAngularVelocity = 175;
-            } else if (distance < 45) {
-                shooterTargetAngularVelocity = 200;
-            } else {
-                shooterTargetAngularVelocity = 235;
-            }
-        }else {
-            shooterTargetAngularVelocity = 290;
-        }
+//        if (!farShot) {
+//            if (distance < 25) {
+//                shooterTargetAngularVelocity = 175;
+//            } else if (distance < 45) {
+//                shooterTargetAngularVelocity = 200;
+//            } else {
+//                shooterTargetAngularVelocity = 235;
+//            }
+//        }else {
+//            shooterTargetAngularVelocity = 290;
+//        }
+        shooterTargetAngularVelocity = 250;
         double targetAngularVelocity = shooterTargetAngularVelocity;
 
         if (deltaTime > shooterMinCheckSecond) {

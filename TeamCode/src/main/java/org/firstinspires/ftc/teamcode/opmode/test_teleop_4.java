@@ -34,6 +34,11 @@ public class test_teleop_4 extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        localizer = new Localizer.Builder()
+                .webcamName("Webcam 1")
+                .startingPose(STARTING_POSE)
+                .build();
+        localizer.init(hardwareMap);
         imu = hardwareMap.get(IMU.class, "imu");
         leftUp = hardwareMap.get(DcMotor.class, "leftUp");
         rightUp = hardwareMap.get(DcMotor.class, "rightUp");
@@ -58,11 +63,7 @@ public class test_teleop_4 extends LinearOpMode {
         leftDown.setDirection(DcMotorSimple.Direction.REVERSE);
         leftUp.setDirection(DcMotorSimple.Direction.REVERSE);
 
-//        localizer = new Localizer.Builder()
-//                .webcamName("Webcam 1")
-//                .startingPose(STARTING_POSE)
-//                .build();
-//        localizer.init(hardwareMap);
+
 
         shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
         intake = new Intake(hardwareMap);
@@ -85,7 +86,7 @@ public class test_teleop_4 extends LinearOpMode {
             } else {
                 intake.stop();
             }
-//            localizer.update();
+            localizer.update();
             if (gamepad1.dpad_down) {
                 imu.resetYaw();
             }
@@ -119,10 +120,10 @@ public class test_teleop_4 extends LinearOpMode {
                 outputY = gamepad1.left_stick_y;
                 outputR = gamepad1.right_stick_x;
             }
-            leftUp.setPower(0.4 * (-outputX + outputY - outputR));
-            rightUp.setPower(0.4 * (-outputX - outputY - outputR));
-            leftDown.setPower(0.4 * (outputX + outputY - outputR));
-            rightDown.setPower(0.4 * (outputX - outputY - outputR));
+            leftUp.setPower(1 * (-outputX + outputY - outputR));
+            rightUp.setPower(1 * (-outputX - outputY - outputR));
+            leftDown.setPower(1 * (outputX + outputY - outputR));
+            rightDown.setPower(1 * (outputX - outputY - outputR));
 
             telemetry.addData("output x", outputX);
             telemetry.addData("output y", outputY);
@@ -134,7 +135,7 @@ public class test_teleop_4 extends LinearOpMode {
             telemetry.addData("stick y", gamepad1.left_stick_y);
             telemetry.addData("stick angle", getStickAngle( gamepad1.left_stick_x, -1 * gamepad1.left_stick_y));
             telemetry.addData("yaw", orientation.getYaw(AngleUnit.DEGREES));
-//            telemetry.addData("pose",localizer.getPose());
+            telemetry.addData("pose",localizer.getPose());
             telemetry.update();
         }
     }

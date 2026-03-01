@@ -107,5 +107,5 @@ public class Constants {
     public static double cameraAngleOfElevation = (double) 18 /180 ;
     public static double angleTunerAngle = 0.04;
     public static double gateClose =0.3;
-    public static double gateOpen = 0.5;
+    public static double gateOpen = 0;
 }

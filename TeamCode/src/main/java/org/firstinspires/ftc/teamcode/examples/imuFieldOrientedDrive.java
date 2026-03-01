@@ -29,6 +29,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+
         shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
 //        shooter = new Shooter(hardwareMap, Shooter.Alliance.RED);
         intake = new Intake(hardwareMap);
@@ -74,6 +75,7 @@ public class imuFieldOrientedDrive extends LinearOpMode {
             }
 
             if (gamepad1.dpad_up) {
+
                 imu.resetYaw();
             }
 
